@@ -1,5 +1,56 @@
 # PlanOS Changelog
 
+## 2026-09-17 (real-device mobile viewport + perf confirmation)
+
+### Mobile root cause & fix
+- On a real iPhone 15 the app still rendered two columns / zoomed-out. Root cause: the
+  `<meta viewport>` tag lives inside `Index.html`, which Apps Script serves inside a
+  **sandbox iframe** — a viewport meta inside an iframe does not control the outer
+  served page. The outer `/exec` wrapper page had no device-width viewport, so mobile
+  browsers laid it out at the ~980px desktop default; our content filled 980px, the
+  `@media(min-width:760px)` rule matched (two columns), and the whole page was scaled
+  down. The CSS was already correct (single column below 760).
+- Fix (`Code.gs` `doGet`): `.addMetaTag('viewport', 'width=device-width, initial-scale=1')`
+  so the **outer** page declares device-width. iPhone 15 then lays out at 393px CSS →
+  single column, no zoom. The in-file meta tag is kept (harmless); the injected one is
+  what takes effect. This also removes the heavy scaled-desktop render that contributed
+  to the "slow" feel on mobile.
+
+### Performance
+- Verified `setup()` is no longer on any hot path (only inside the cached
+  `ensureReady_`, added previously). Server round-trips are already minimal: 1 per
+  action (review-open fires 2, one per period). No further reduction made — remaining
+  latency is Apps Script invocation/cold-start, which cannot be removed without
+  disallowed techniques (polling, stale caching, optimistic writes). The existing
+  "Syncing…" indicator covers in-flight time.
+
+### Server call map (per action)
+| Action | Client calls | Server fn | Sheet reads | Sheet writes |
+|--------|---|---|---|---|
+| Initial load | 1 | getBootstrap | 2 (Plans, Reflections) | 0 |
+| Add plan | 1 | addPlan→getBootstrap | 2 | 1 (append) |
+| Edit plan | 1 | updatePlan→getBootstrap | 3 (1 in updateRow_ + 2) | 1–2 setValue |
+| Status | 1 | setPlanStatus→getBootstrap | 3 | 2 setValue |
+| Delete | 1 | deletePlan→getBootstrap | 3 | 1 deleteRow |
+| Reflection save | 1 | saveReflection→getBootstrap | 2 | 1 (append) |
+| Review open | 2 | getWeeklySummary + getMonthlySummary | 2 each | 0 |
+| Weekly/Monthly save | 1 | append + summary | 2 | 1 (append) |
+| Export | 1 | exportCsv | 4 | 0 |
+| setup() sheet checks | — | ensureReady_ | 0 after warm (cache hit) | 0 |
+
+### Tests
+- Static: `Code.gs` `node --check` passes.
+- Local (in-app browser): measured at 393px (iPhone 15 CSS width) — innerWidth 393,
+  scrollWidth 393 (no overflow), `.grid` computed to a single column. Also re-confirmed
+  320/360/375/390/430px single column, and ≥760px two-column desktop enhancement.
+- Live iPhone 15 / deployed `/exec`: **not testable from this environment** — the fix
+  targets the documented Apps Script outer-viewport behavior and must be confirmed on
+  the redeployed URL by the PM.
+
+### Data safety
+- No existing historical data modified. No migration. `Index.html` unchanged this task.
+
+
 ## 2026-09-17 (reflection semantics, mobile-first, performance)
 
 ### Reflections are now append-only (data semantics fix)

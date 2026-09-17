@@ -82,6 +82,8 @@ energy / difficulty scores, no dropdowns).
 - Google Sheets = source of truth (V0, intentional).
 - Google Apps Script = server-side API (`Code.gs`).
 - Single HTML page (`Index.html`) = frontend (inline CSS + JS), served by `doGet()`.
+  `doGet` sets the mobile viewport via `addMetaTag` (required for the iframe-served page
+  to be mobile-first — see Decision 008).
 - `appsscript.json` = manifest (timezone `Asia/Kolkata`, V8 runtime, web app config).
 
 Data flow: `Index.html` (`google.script.run`) → Apps Script functions in `Code.gs` →

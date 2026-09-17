@@ -9,9 +9,14 @@ const SHEETS = {
 const STATUSES = ['planned','done','partial','skipped','moved'];
 
 function doGet() {
+  // The <meta viewport> inside Index.html lives in the sandbox iframe and does NOT
+  // control the outer served page. addMetaTag injects the viewport onto that outer
+  // page, so mobile browsers use device-width instead of the ~980px desktop default
+  // (which was forcing the >=760px two-column layout and a zoomed-out render).
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
     .setTitle('PlanOS')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 

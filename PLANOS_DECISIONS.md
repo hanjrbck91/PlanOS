@@ -133,3 +133,25 @@ lost earlier entries. A new `sequence`/`version` column — unnecessary; `id` +
 Revisit when:
 Never expected to revert. If editing/deleting an individual reflection entry is ever
 wanted, add it as an explicit per-entry action, not by returning to overwrite-on-save.
+
+## Decision 008 — Set the mobile viewport via doGet's addMetaTag, not just Index.html
+
+Status: Accepted
+
+Decision:
+`doGet` must call `.addMetaTag('viewport', 'width=device-width, initial-scale=1')`. Do
+not rely on the `<meta viewport>` inside `Index.html` for mobile behavior.
+
+Reason:
+Apps Script serves the HTML inside a sandbox iframe. A viewport meta inside that iframe
+does not control the outer served page, so without `addMetaTag` mobile browsers render
+the outer page at the ~980px desktop default and scale it down — defeating the
+mobile-first CSS. This was the real cause of the iPhone showing a two-column,
+zoomed-out layout.
+
+Alternatives considered:
+Only lowering the CSS breakpoint — rejected: the media query was never the problem; the
+content was being laid out at desktop width regardless.
+
+Revisit when:
+The app is no longer served through Apps Script HtmlService.
