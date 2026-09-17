@@ -95,6 +95,13 @@ without explicit approval. PlanOS is the planning layer only; future domain syst
 (RunnerOS, LearnOS, MemoryOS, etc.) would own their own data — PlanOS must not
 duplicate them.
 
+## Attention-target rule (permanent)
+
+PlanOS presents the user's current attention target first. On load, **only Today is
+expanded**; Tomorrow, Reflection, Review, and Export are collapsed disclosures the user
+opens on demand. Historical/contextual information stays available but never crowds the
+initial screen. Do not restore an always-visible dashboard.
+
 ## UI design direction
 
 Mobile-first, modular tile/card layout with a retro "digital instrument / personal OS"

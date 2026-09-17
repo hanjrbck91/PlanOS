@@ -155,3 +155,30 @@ content was being laid out at desktop width regardless.
 
 Revisit when:
 The app is no longer served through Apps Script HtmlService.
+
+## Decision 009 — Collapsed-by-default sections; mutations return only the changed record
+
+Status: Accepted
+
+Decision:
+Secondary sections (Tomorrow, Reflection, Review, Export) are collapsed on load; only
+Today is open. Review data loads lazily on first open. Mutations
+(add/update/status/delete/reflection/review save) return only the affected record; the
+client patches local state and re-renders just that section. `getBootstrap` runs once on
+initial load.
+
+Reason:
+Two live iPhone findings: (1) the screen should show the current attention target, not
+all stored data; (2) interactions felt slow because every write returned a full
+`getBootstrap` (two full-sheet reads + full re-render). Returning one record removes the
+redundant reads/renders while keeping the Sheet as the source of truth (values are
+server-confirmed, not optimistic).
+
+Alternatives considered:
+Optimistic UI (rejected — forbidden and risks divergence from the Sheet); a client cache
+of all data (rejected — staleness risk). Keeping full-bootstrap responses (rejected —
+the measured source of warm-interaction latency).
+
+Revisit when:
+Data volume grows enough that `updateRow_`/`deleteRow_`'s full-sheet scan to locate a row
+by id becomes a bottleneck (then use a TextFinder or an id→row index).

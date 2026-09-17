@@ -1,5 +1,57 @@
 # PlanOS Changelog
 
+## 2026-09-17 (collapsible sections + lighter interactions)
+
+### Collapsible information architecture
+- Today stays open and primary. Tomorrow, Reflection, Review, Export are now
+  `<details>` disclosures, **collapsed by default** — only Today shows on load. Each
+  toggles independently (native accordion; multiple may stay open). Chevron rotates on
+  open. Removed the always-visible Tomorrow/Reflection blocks and the Review/Export
+  tiles. Removed the temporary `?debug=1` panel and `doGet` debug flag (diagnostic only).
+
+### Performance root cause & fix
+- Root cause (measured by tracing the code): every mutation returned a full
+  `getBootstrap()` — two full-sheet reads (Plans + Reflections) plus a full re-render —
+  on top of the write. That is the avoidable warm-interaction cost. `setup()` was
+  already off hot paths (cached `ensureReady_`), confirmed still true.
+- Fix: mutations now return **only the affected record**; the client patches its local
+  state and re-renders just that one list/section. `getBootstrap` runs once, on initial
+  load. Review data loads **lazily** the first time the Review section is opened (not on
+  page load). Reflection stays append-only; the new row is prepended client-side.
+
+### RPC / sheet-work map (after)
+| Action | RPC | Sheet reads | Sheet writes | Full bootstrap? |
+|--------|-----|-------------|--------------|-----------------|
+| Initial load | 1 | 2 (Plans, Reflections) | 0 | yes (once) |
+| Add plan | 1 | 0 | 1 append | no |
+| Status | 1 | 1 (locate row in updateRow_) | 2 setValue | no |
+| Edit | 1 | 1 (locate row) | 1–2 setValue | no |
+| Delete | 1 | 1 (locate row) | 1 delete | no |
+| Reflection save | 1 | 0 | 1 append | no |
+| Review open | 2 (lazy, first open) | 2 each | 0 | no |
+| Weekly/Monthly save | 1 | 0 | 1 append | no |
+| Export | 1 | 4 | 0 | n/a |
+
+Full-sheet reads now remain only in: `getBootstrap` (load), `updateRow_`/`deleteRow_`
+(locate row by id — necessary), the review summaries (on open), and export.
+
+### Measurements
+- No live/server timings taken (no deployed-app access here) — not inventing numbers.
+  Structural reduction is concrete: mutations went from (write + 2 full reads + full
+  re-render) to (write + 0–1 read + one-list re-render).
+
+### Tests
+- Static: `Code.gs` `node --check`; `Index.html` inline script parses.
+- Local (in-app browser, stubbed backend) at **iPhone 15 / 393px**: initial state shows
+  only Today open; Tomorrow/Reflection/Review/Export collapsed; single column, no
+  horizontal overflow. Verified single add (+1, no dup), status cycle, append-only
+  reflection (prepend), disclosure open/close with chevron, and lazy Review load on
+  first open. Also spot-checked layout at 320–430px (single column) previously.
+
+### Data safety
+- No existing data modified. Reflections remain append-only; multiple entries per
+  day/week/month preserved.
+
 ## 2026-09-17 (TEMPORARY mobile viewport diagnostic)
 
 ### Added (temporary — to be removed after root cause is found)

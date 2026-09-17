@@ -119,6 +119,16 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-text-
 .sync{display:none;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--olive);margin-top:6px}
 body.busy .sync{display:block}
 
+/* collapsible sections */
+details.card{padding:0}
+details.card>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px;font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;-webkit-tap-highlight-color:transparent}
+details.card>summary::-webkit-details-marker{display:none}
+.s-right{display:flex;align-items:center;gap:10px}
+.chev{font-size:13px;opacity:.7;transition:transform .15s;line-height:1}
+details[open]>summary .chev{transform:rotate(90deg)}
+.sec-body{padding:0 16px 16px}
+.sec-body .add{margin-top:0}
+
 .hidden{display:none}
 
 /* toast */
@@ -133,7 +143,7 @@ body.busy .sync{display:block}
   .today{grid-column:1/-1}
 }
 </style></head>
-<body data-debug="<?= debug ?>"><main class="app">
+<body><main class="app">
   <div class="top">
     <div><div class="brand">PlanOS</div><div class="tag">PLAN · EXECUTE · REFLECT</div></div>
     <div class="hd-right"><div id="hdDate" class="hd-date"></div><div class="hd-note">Keep it short.<br>Get back to life.</div><div id="sync" class="sync">Syncing…</div></div>
@@ -147,49 +157,59 @@ body.busy .sync{display:block}
       <div class="add"><input id="todayInput" class="input" placeholder="Add a plan…" onkeydown="if(event.key==='Enter')add('today')"><button class="addbtn" onclick="add('today')" aria-label="Add today plan">+</button></div>
     </section>
 
-    <section class="card tomorrow">
-      <div class="head"><span class="label">Tomorrow</span><span id="tomorrowCount" class="count"></span></div>
-      <div id="tomorrowDate" class="pstat" style="opacity:.55;margin:-6px 0 12px"></div>
-      <div id="tomorrowPlans" class="plans"></div>
-      <div class="add"><input id="tomorrowInput" class="input" placeholder="Prepare tomorrow…" onkeydown="if(event.key==='Enter')add('tomorrow')"><button class="addbtn" onclick="add('tomorrow')" aria-label="Add tomorrow plan">+</button></div>
-    </section>
-
-    <section class="card reflect">
-      <div class="head"><span class="label">Reflection</span></div>
-      <p class="muted" style="margin:0 0 10px;font-size:13px;line-height:1.45">What happened? What worked? What didn't? What should change tomorrow?</p>
-      <textarea id="reflection" class="rarea" placeholder="Write a reflection…"></textarea>
-      <button class="btn" onclick="saveReflection()">Save reflection</button>
-      <div id="todayNotes" class="notes"></div>
-    </section>
-
-    <div class="tiles">
-      <button class="tile review" onclick="toggleReview()"><span class="tl">Review ▸</span><span class="ts">Weekly · Monthly. Learn and adjust.</span></button>
-      <button class="tile" onclick="exportData()"><span class="tl">Export ▾</span><span class="ts">CSV. Your data, your insights.</span></button>
-    </div>
-
-    <section id="review" class="card hidden">
-      <div class="rev-block">
-        <div class="head"><span class="label">This week</span></div>
-        <div id="weekRange" class="rev-range"></div>
-        <div id="weekCounts" class="counts"></div>
-        <textarea id="weekReflection" class="rarea" placeholder="Weekly reflection — what worked, what was unrealistic, what changes next week?"></textarea>
-        <button class="btn" style="background:var(--olive);color:#14130f;border-color:var(--olive)" onclick="saveWeekly()">Save weekly</button>
-        <div id="weekNotes" class="notes"></div>
+    <details class="card tomorrow">
+      <summary><span>Tomorrow</span><span class="s-right"><span id="tomorrowCount" class="count"></span><span class="chev">▸</span></span></summary>
+      <div class="sec-body">
+        <div id="tomorrowDate" class="pstat" style="opacity:.55;margin:0 0 12px"></div>
+        <div id="tomorrowPlans" class="plans"></div>
+        <div class="add" style="margin-top:12px"><input id="tomorrowInput" class="input" placeholder="Prepare tomorrow…" onkeydown="if(event.key==='Enter')add('tomorrow')"><button class="addbtn" onclick="add('tomorrow')" aria-label="Add tomorrow plan">+</button></div>
       </div>
-      <div class="rev-block">
-        <div class="head"><span class="label">This month</span></div>
-        <div id="monthLabel" class="rev-range"></div>
-        <div id="monthCounts" class="counts"></div>
-        <textarea id="monthReflection" class="rarea" placeholder="Monthly reflection — patterns, recurring problems, recurring successes?"></textarea>
-        <button class="btn" style="background:var(--olive);color:#14130f;border-color:var(--olive)" onclick="saveMonthly()">Save monthly</button>
-        <div id="monthNotes" class="notes"></div>
+    </details>
+
+    <details class="card reflect">
+      <summary><span>Reflection</span><span class="chev">▸</span></summary>
+      <div class="sec-body">
+        <p class="muted" style="margin:0 0 10px;font-size:13px;line-height:1.45">What happened? What worked? What didn't? What should change tomorrow?</p>
+        <textarea id="reflection" class="rarea" placeholder="Write a reflection…"></textarea>
+        <button class="btn" onclick="saveReflection()">Save reflection</button>
+        <div id="todayNotes" class="notes"></div>
       </div>
-    </section>
+    </details>
+
+    <details id="review" class="card">
+      <summary><span>Review</span><span class="chev">▸</span></summary>
+      <div class="sec-body">
+        <div class="rev-block">
+          <div class="head"><span class="label">This week</span></div>
+          <div id="weekRange" class="rev-range"></div>
+          <div id="weekCounts" class="counts"></div>
+          <textarea id="weekReflection" class="rarea" placeholder="Weekly reflection — what worked, what was unrealistic, what changes next week?"></textarea>
+          <button class="btn" style="background:var(--olive);color:#14130f;border-color:var(--olive)" onclick="saveWeekly()">Save weekly</button>
+          <div id="weekNotes" class="notes"></div>
+        </div>
+        <div class="rev-block">
+          <div class="head"><span class="label">This month</span></div>
+          <div id="monthLabel" class="rev-range"></div>
+          <div id="monthCounts" class="counts"></div>
+          <textarea id="monthReflection" class="rarea" placeholder="Monthly reflection — patterns, recurring problems, recurring successes?"></textarea>
+          <button class="btn" style="background:var(--olive);color:#14130f;border-color:var(--olive)" onclick="saveMonthly()">Save monthly</button>
+          <div id="monthNotes" class="notes"></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="card export">
+      <summary><span>Export</span><span class="chev">▸</span></summary>
+      <div class="sec-body">
+        <p class="muted" style="margin:0 0 12px;font-size:13px;color:var(--muted2)">CSV. Your data, your insights.</p>
+        <button class="btn" onclick="exportData()">Export CSV</button>
+      </div>
+    </details>
   </div>
 </main>
 <div id="toast"></div>
 <script>
-let state, week, month;
+let state, week, month, weekData, monthData, reviewLoaded=false;
 
 // --- server-call plumbing: one request per action, with a lightweight busy state ---
 let inflight=0;
@@ -197,6 +217,7 @@ function setBusy(on){inflight+=on?1:-1;if(inflight<0)inflight=0;document.body.cl
 function fin(fn){return function(x){setBusy(false);if(fn)fn(x)}}
 function err(e){toast(e&&e.message?e.message:String(e))}
 
+// One RPC on initial load. Mutations do NOT call this again — they patch local state.
 function load(){setBusy(true);google.script.run.withSuccessHandler(fin(render)).withFailureHandler(fin(err)).getBootstrap()}
 
 function render(s){
@@ -204,11 +225,14 @@ function render(s){
   document.getElementById('hdDate').textContent=hdDate(s.today);
   document.getElementById('todayDate').textContent=pretty(s.today);
   document.getElementById('tomorrowDate').textContent=pretty(s.tomorrow);
-  document.getElementById('todayCount').textContent=doneCount(s.todayPlans);
-  document.getElementById('tomorrowCount').textContent=String(s.tomorrowPlans.length);
   renderPlans('todayPlans',s.todayPlans);
   renderPlans('tomorrowPlans',s.tomorrowPlans);
+  updateCounts();
   renderNotes('todayNotes', s.reflections, 'time', "Today's notes");
+}
+function updateCounts(){
+  document.getElementById('todayCount').textContent=doneCount(state.todayPlans);
+  document.getElementById('tomorrowCount').textContent=String(state.tomorrowPlans.length);
 }
 function doneCount(plans){const d=plans.filter(p=>p.status==='done').length;return d+'/'+plans.length}
 function hdDate(k){const d=new Date(k+'T00:00:00');return d.toLocaleDateString(undefined,{weekday:'short',day:'2-digit',month:'short',year:'numeric'})}
@@ -232,22 +256,27 @@ function renderNotes(id, arr, mode, heading){
 }
 function stamp(iso,mode){const d=new Date(iso);if(isNaN(d.getTime()))return '';const t=d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});return mode==='time'?t:d.toLocaleDateString(undefined,{day:'numeric',month:'short'})+' · '+t}
 
-function cycle(id,s){const next={planned:'done',done:'partial',partial:'skipped',skipped:'moved',moved:'planned'}[s];setBusy(true);google.script.run.withSuccessHandler(fin(render)).withFailureHandler(fin(err)).setPlanStatus(id,next)}
-function add(which){const el=document.getElementById(which+'Input'),v=el.value.trim();if(!v)return;setBusy(true);google.script.run.withSuccessHandler(fin(s=>{el.value='';render(s);el.focus()})).withFailureHandler(fin(err)).addPlan(which==='today'?state.today:state.tomorrow,v)}
-function edit(id){const p=(state.todayPlans.concat(state.tomorrowPlans)).find(x=>x.id===id);if(!p)return;const v=prompt('Edit plan',p.plan);if(v===null)return;setBusy(true);google.script.run.withSuccessHandler(fin(render)).withFailureHandler(fin(err)).updatePlan(id,v)}
-function removePlan(id){if(!confirm('Remove this plan?'))return;setBusy(true);google.script.run.withSuccessHandler(fin(render)).withFailureHandler(fin(err)).deletePlan(id)}
-function saveReflection(){const ta=document.getElementById('reflection'),v=ta.value.trim();if(!v){toast('Nothing to save.');return}setBusy(true);google.script.run.withSuccessHandler(fin(s=>{ta.value='';render(s);toast('Reflection saved.')})).withFailureHandler(fin(err)).saveReflection(state.today,v)}
+function listOf(id){return state.todayPlans.some(x=>x.id===id)?'today':'tomorrow'}
+function findPlan(id){return state.todayPlans.find(x=>x.id===id)||state.tomorrowPlans.find(x=>x.id===id)}
 
-function toggleReview(){const el=document.getElementById('review');el.classList.toggle('hidden');if(!el.classList.contains('hidden')){loadReview();el.scrollIntoView({behavior:'smooth',block:'start'})}}
+// Mutations: one RPC, then patch local state from the server-confirmed record.
+function cycle(id,s){const next={planned:'done',done:'partial',partial:'skipped',skipped:'moved',moved:'planned'}[s];const w=listOf(id);setBusy(true);google.script.run.withSuccessHandler(fin(u=>{const p=findPlan(id);if(p){p.status=u.status;p.updated_at=u.updated_at}renderPlans(w+'Plans',state[w+'Plans']);updateCounts()})).withFailureHandler(fin(err)).setPlanStatus(id,next)}
+function add(which){const el=document.getElementById(which+'Input'),v=el.value.trim();if(!v)return;setBusy(true);google.script.run.withSuccessHandler(fin(p=>{el.value='';state[which+'Plans'].push(p);renderPlans(which+'Plans',state[which+'Plans']);updateCounts();el.focus()})).withFailureHandler(fin(err)).addPlan(which==='today'?state.today:state.tomorrow,v)}
+function edit(id){const p=findPlan(id);if(!p)return;const v=prompt('Edit plan',p.plan);if(v===null)return;const w=listOf(id);setBusy(true);google.script.run.withSuccessHandler(fin(u=>{const q=findPlan(id);if(q){q.plan=u.plan;q.updated_at=u.updated_at}renderPlans(w+'Plans',state[w+'Plans'])})).withFailureHandler(fin(err)).updatePlan(id,v)}
+function removePlan(id){if(!confirm('Remove this plan?'))return;const w=listOf(id);setBusy(true);google.script.run.withSuccessHandler(fin(()=>{state[w+'Plans']=state[w+'Plans'].filter(x=>x.id!==id);renderPlans(w+'Plans',state[w+'Plans']);updateCounts()})).withFailureHandler(fin(err)).deletePlan(id)}
+function saveReflection(){const ta=document.getElementById('reflection'),v=ta.value.trim();if(!v){toast('Nothing to save.');return}setBusy(true);google.script.run.withSuccessHandler(fin(r=>{ta.value='';if(r){state.reflections.unshift(r);renderNotes('todayNotes',state.reflections,'time',"Today's notes")}toast('Reflection saved.')})).withFailureHandler(fin(err)).saveReflection(state.today,v)}
+
+// Review data loads only when the section is first opened (lazy).
 function loadReview(){
+  reviewLoaded=true;
   setBusy(true);google.script.run.withSuccessHandler(fin(renderWeek)).withFailureHandler(fin(err)).getWeeklySummary(null);
   setBusy(true);google.script.run.withSuccessHandler(fin(renderMonth)).withFailureHandler(fin(err)).getMonthlySummary(null);
 }
-function renderWeek(w){week=w.week;document.getElementById('weekRange').textContent=pretty(w.start)+' – '+pretty(w.end);document.getElementById('weekCounts').innerHTML=counts(w.counts);document.getElementById('weekReflection').value='';renderNotes('weekNotes',w.reflections,'date','Previous notes')}
-function renderMonth(m){month=m.month;const d=new Date(m.month+'-01T00:00:00');document.getElementById('monthLabel').textContent=d.toLocaleDateString(undefined,{month:'long',year:'numeric'});document.getElementById('monthCounts').innerHTML=counts(m.counts);document.getElementById('monthReflection').value='';renderNotes('monthNotes',m.reflections,'date','Previous notes')}
+function renderWeek(w){weekData=w;week=w.week;document.getElementById('weekRange').textContent=pretty(w.start)+' – '+pretty(w.end);document.getElementById('weekCounts').innerHTML=counts(w.counts);document.getElementById('weekReflection').value='';renderNotes('weekNotes',w.reflections,'date','Previous notes')}
+function renderMonth(m){monthData=m;month=m.month;const d=new Date(m.month+'-01T00:00:00');document.getElementById('monthLabel').textContent=d.toLocaleDateString(undefined,{month:'long',year:'numeric'});document.getElementById('monthCounts').innerHTML=counts(m.counts);document.getElementById('monthReflection').value='';renderNotes('monthNotes',m.reflections,'date','Previous notes')}
 function counts(c){return[['total','Plans'],['done','Done'],['partial','Partial'],['skipped','Skipped'],['moved','Moved']].map(([k,l])=>`<div><b>${c[k]||0}</b><span>${l}</span></div>`).join('')}
-function saveWeekly(){const ta=document.getElementById('weekReflection'),v=ta.value.trim();if(!v){toast('Nothing to save.');return}setBusy(true);google.script.run.withSuccessHandler(fin(w=>{renderWeek(w);toast('Weekly saved.')})).withFailureHandler(fin(err)).saveWeeklyReflection(week,v)}
-function saveMonthly(){const ta=document.getElementById('monthReflection'),v=ta.value.trim();if(!v){toast('Nothing to save.');return}setBusy(true);google.script.run.withSuccessHandler(fin(m=>{renderMonth(m);toast('Monthly saved.')})).withFailureHandler(fin(err)).saveMonthlyReflection(month,v)}
+function saveWeekly(){const ta=document.getElementById('weekReflection'),v=ta.value.trim();if(!v){toast('Nothing to save.');return}setBusy(true);google.script.run.withSuccessHandler(fin(r=>{ta.value='';if(r&&weekData){weekData.reflections.unshift(r);renderNotes('weekNotes',weekData.reflections,'date','Previous notes')}toast('Weekly saved.')})).withFailureHandler(fin(err)).saveWeeklyReflection(week,v)}
+function saveMonthly(){const ta=document.getElementById('monthReflection'),v=ta.value.trim();if(!v){toast('Nothing to save.');return}setBusy(true);google.script.run.withSuccessHandler(fin(r=>{ta.value='';if(r&&monthData){monthData.reflections.unshift(r);renderNotes('monthNotes',monthData.reflections,'date','Previous notes')}toast('Monthly saved.')})).withFailureHandler(fin(err)).saveMonthlyReflection(month,v)}
 
 let toastT;
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1900)}
@@ -256,32 +285,7 @@ function exportData(){setBusy(true);google.script.run.withSuccessHandler(fin(dat
 function download(name,text){const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(text);a.download=name;a.click()}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
-// TEMPORARY diagnostic panel — shown only with /exec?debug=1. Remove after root cause found.
-function debugPanel(){
-  const vv=window.visualViewport||{}, grid=document.querySelector('.grid'), app=document.querySelector('.app');
-  const L=[
-    'innerWidth='+window.innerWidth+'  innerHeight='+window.innerHeight,
-    'clientWidth='+document.documentElement.clientWidth+'  clientHeight='+document.documentElement.clientHeight,
-    'scrollWidth='+document.documentElement.scrollWidth+'  scrollHeight='+document.documentElement.scrollHeight,
-    'outerWidth='+window.outerWidth+'  outerHeight='+window.outerHeight,
-    'screen='+screen.width+'x'+screen.height+'  dpr='+window.devicePixelRatio,
-    'visualViewport='+(vv.width?vv.width.toFixed(0):'-')+'x'+(vv.height?vv.height.toFixed(0):'-'),
-    'mq(max759)='+matchMedia('(max-width:759px)').matches,
-    'mq(min760)='+matchMedia('(min-width:760px)').matches,
-    'gridCols='+(grid?getComputedStyle(grid).gridTemplateColumns:'-'),
-    'gridWidth='+(grid?grid.getBoundingClientRect().width.toFixed(0):'-'),
-    'bodyWidth='+document.body.getBoundingClientRect().width.toFixed(0),
-    'appWidth='+(app?app.getBoundingClientRect().width.toFixed(0):'-'),
-    'innerViewportMeta='+(document.querySelector('meta[name=viewport]')?.getAttribute('content')||'MISSING'),
-    'isIframe='+(window.parent!==window)
-  ];
-  try{ L.push('parent.innerWidth='+window.parent.innerWidth); }
-  catch(e){ L.push('parent.innerWidth=BLOCKED(cross-origin)'); }
-  const pre=document.createElement('pre');
-  pre.textContent='PLANOS DEBUG\n'+L.join('\n');
-  pre.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;margin:0;padding:8px;background:#000;color:#3f6;font:11px/1.5 ui-monospace,monospace;white-space:pre-wrap;border-bottom:2px solid #3f6';
-  document.body.appendChild(pre);
-}
-if(document.body.dataset.debug==='true') debugPanel();
+// Lazy-load Review the first time it is opened.
+document.getElementById('review').addEventListener('toggle',function(){if(this.open&&!reviewLoaded)loadReview()});
 load();
 </script></body></html>

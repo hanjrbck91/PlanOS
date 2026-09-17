@@ -8,14 +8,13 @@ const SHEETS = {
 
 const STATUSES = ['planned','done','partial','skipped','moved'];
 
-function doGet(e) {
+function doGet() {
   // The <meta viewport> inside Index.html lives in the sandbox iframe and does NOT
   // control the outer served page. addMetaTag injects the viewport onto that outer
   // page, so mobile browsers use device-width instead of the ~980px desktop default
   // (which was forcing the >=760px two-column layout and a zoomed-out render).
-  const t = HtmlService.createTemplateFromFile('Index');
-  t.debug = !!(e && e.parameter && e.parameter.debug); // TEMPORARY: /exec?debug=1 diagnostic
-  return t.evaluate()
+  return HtmlService.createTemplateFromFile('Index')
+    .evaluate()
     .setTitle('PlanOS')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
@@ -56,41 +55,48 @@ function getBootstrap() {
   };
 }
 
+// Mutations return only the affected record so the client updates local state without a
+// full re-read/re-render. The Sheet stays the source of truth (server-confirmed values).
 function addPlan(date, plan) {
   ensureReady_();
   if (!plan || !String(plan).trim()) throw new Error('Plan cannot be empty.');
   const now = new Date().toISOString();
   const id = Utilities.getUuid();
-  sheet_(SHEETS.PLANS).appendRow([id, date, String(plan).trim(), 'planned', now, now]);
-  return getBootstrap();
+  const text = String(plan).trim();
+  sheet_(SHEETS.PLANS).appendRow([id, date, text, 'planned', now, now]);
+  return {id, date, plan: text, status: 'planned', created_at: now, updated_at: now};
 }
 
 function updatePlan(id, plan) {
   if (!plan || !String(plan).trim()) throw new Error('Plan cannot be empty.');
-  updateRow_(SHEETS.PLANS, id, {plan: String(plan).trim(), updated_at: new Date().toISOString()});
-  return getBootstrap();
+  const now = new Date().toISOString();
+  const text = String(plan).trim();
+  updateRow_(SHEETS.PLANS, id, {plan: text, updated_at: now});
+  return {id, plan: text, updated_at: now};
 }
 
 function setPlanStatus(id, status) {
   if (!STATUSES.includes(status)) throw new Error('Invalid status.');
-  updateRow_(SHEETS.PLANS, id, {status, updated_at: new Date().toISOString()});
-  return getBootstrap();
+  const now = new Date().toISOString();
+  updateRow_(SHEETS.PLANS, id, {status, updated_at: now});
+  return {id, status, updated_at: now};
 }
 
 function deletePlan(id) {
   deleteRow_(SHEETS.PLANS, id);
-  return getBootstrap();
+  return {id};
 }
 
 // Reflections are append-only observations: every save adds a new row, never overwrites.
+// Returns the newly created row so the client can prepend it to its history.
 function saveReflection(date, reflection) {
   ensureReady_();
   const text = String(reflection || '').trim();
-  if (text) {
-    const now = new Date().toISOString();
-    sheet_(SHEETS.REFLECTIONS).appendRow([Utilities.getUuid(), date, text, now, now]);
-  }
-  return getBootstrap();
+  if (!text) return null;
+  const now = new Date().toISOString();
+  const id = Utilities.getUuid();
+  sheet_(SHEETS.REFLECTIONS).appendRow([id, date, text, now, now]);
+  return {id, date, reflection: text, created_at: now, updated_at: now};
 }
 
 // --- Weekly review ---
@@ -111,8 +117,7 @@ function getWeeklySummary(week) {
 }
 
 function saveWeeklyReflection(week, reflection) {
-  appendReview_(SHEETS.WEEKLY, week, reflection);
-  return getWeeklySummary(week);
+  return appendReview_(SHEETS.WEEKLY, 'week', week, reflection);
 }
 
 // --- Monthly review ---
@@ -131,8 +136,7 @@ function getMonthlySummary(month) {
 }
 
 function saveMonthlyReflection(month, reflection) {
-  appendReview_(SHEETS.MONTHLY, month, reflection);
-  return getMonthlySummary(month);
+  return appendReview_(SHEETS.MONTHLY, 'month', month, reflection);
 }
 
 function exportCsv() {
@@ -152,14 +156,17 @@ function countStatuses_(plans) {
   return c;
 }
 
-// Append-only: each weekly/monthly review save adds a new entry for that period.
-function appendReview_(sheetName, keyVal, reflection) {
+// Append-only: each weekly/monthly review save adds a new entry and returns that row.
+function appendReview_(sheetName, keyCol, keyVal, reflection) {
   ensureReady_();
   const text = String(reflection || '').trim();
-  if (text) {
-    const now = new Date().toISOString();
-    sheet_(sheetName).appendRow([Utilities.getUuid(), keyVal, text, now, now]);
-  }
+  if (!text) return null;
+  const now = new Date().toISOString();
+  const id = Utilities.getUuid();
+  sheet_(sheetName).appendRow([id, keyVal, text, now, now]);
+  const row = {id, reflection: text, created_at: now, updated_at: now};
+  row[keyCol] = keyVal;
+  return row;
 }
 
 // Sort reflection/review rows newest-first by created_at (ISO strings sort chronologically).
