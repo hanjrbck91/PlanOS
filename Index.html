@@ -133,7 +133,7 @@ body.busy .sync{display:block}
   .today{grid-column:1/-1}
 }
 </style></head>
-<body><main class="app">
+<body data-debug="<?= debug ?>"><main class="app">
   <div class="top">
     <div><div class="brand">PlanOS</div><div class="tag">PLAN · EXECUTE · REFLECT</div></div>
     <div class="hd-right"><div id="hdDate" class="hd-date"></div><div class="hd-note">Keep it short.<br>Get back to life.</div><div id="sync" class="sync">Syncing…</div></div>
@@ -255,5 +255,33 @@ function toast(m){const t=document.getElementById('toast');t.textContent=m;t.cla
 function exportData(){setBusy(true);google.script.run.withSuccessHandler(fin(data=>{download('PlanOS_Plans.csv',data.plans);download('PlanOS_Reflections.csv',data.reflections);download('PlanOS_WeeklyReviews.csv',data.weekly);download('PlanOS_MonthlyReviews.csv',data.monthly);toast('CSV exported.')})).withFailureHandler(fin(err)).exportCsv()}
 function download(name,text){const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(text);a.download=name;a.click()}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+// TEMPORARY diagnostic panel — shown only with /exec?debug=1. Remove after root cause found.
+function debugPanel(){
+  const vv=window.visualViewport||{}, grid=document.querySelector('.grid'), app=document.querySelector('.app');
+  const L=[
+    'innerWidth='+window.innerWidth+'  innerHeight='+window.innerHeight,
+    'clientWidth='+document.documentElement.clientWidth+'  clientHeight='+document.documentElement.clientHeight,
+    'scrollWidth='+document.documentElement.scrollWidth+'  scrollHeight='+document.documentElement.scrollHeight,
+    'outerWidth='+window.outerWidth+'  outerHeight='+window.outerHeight,
+    'screen='+screen.width+'x'+screen.height+'  dpr='+window.devicePixelRatio,
+    'visualViewport='+(vv.width?vv.width.toFixed(0):'-')+'x'+(vv.height?vv.height.toFixed(0):'-'),
+    'mq(max759)='+matchMedia('(max-width:759px)').matches,
+    'mq(min760)='+matchMedia('(min-width:760px)').matches,
+    'gridCols='+(grid?getComputedStyle(grid).gridTemplateColumns:'-'),
+    'gridWidth='+(grid?grid.getBoundingClientRect().width.toFixed(0):'-'),
+    'bodyWidth='+document.body.getBoundingClientRect().width.toFixed(0),
+    'appWidth='+(app?app.getBoundingClientRect().width.toFixed(0):'-'),
+    'innerViewportMeta='+(document.querySelector('meta[name=viewport]')?.getAttribute('content')||'MISSING'),
+    'isIframe='+(window.parent!==window)
+  ];
+  try{ L.push('parent.innerWidth='+window.parent.innerWidth); }
+  catch(e){ L.push('parent.innerWidth=BLOCKED(cross-origin)'); }
+  const pre=document.createElement('pre');
+  pre.textContent='PLANOS DEBUG\n'+L.join('\n');
+  pre.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;margin:0;padding:8px;background:#000;color:#3f6;font:11px/1.5 ui-monospace,monospace;white-space:pre-wrap;border-bottom:2px solid #3f6';
+  document.body.appendChild(pre);
+}
+if(document.body.dataset.debug==='true') debugPanel();
 load();
 </script></body></html>

@@ -1,5 +1,29 @@
 # PlanOS Changelog
 
+## 2026-09-17 (TEMPORARY mobile viewport diagnostic)
+
+### Added (temporary — to be removed after root cause is found)
+- `doGet(e)` reads `?debug=1` and passes a `debug` flag into the template.
+- `Index.html` renders a fixed diagnostic panel when `?debug=1`, reporting the inner
+  document's innerWidth/height, clientWidth/height, scrollWidth/height, outerWidth,
+  screen, devicePixelRatio, visualViewport, `matchMedia` (max-width:759 / min-width:760),
+  computed `.grid` columns/width, body/app width, the inner viewport meta content,
+  whether it is framed, and (if same-origin) parent innerWidth.
+- Reason: the previous `addMetaTag` fix (`20763f2`) did not resolve the real-iPhone
+  two-column render; we need the actual viewport the PlanOS document sees on device
+  before making any further change.
+
+### Not changed
+- No CSS/layout/breakpoint change, no data-model change, no permanent UI change. This
+  commit is diagnostic only and is expected to be reverted.
+
+### What could NOT be verified from this environment
+- The live Apps Script project, deployment id/version, and whether `/exec` serves the
+  new version — no access to the PM's project here.
+- Real iPhone 15 rendering — no device automation here; the in-app browser is not Safari
+  and not inside the Apps Script iframe.
+
+
 ## 2026-09-17 (real-device mobile viewport + perf confirmation)
 
 ### Mobile root cause & fix
