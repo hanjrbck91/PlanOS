@@ -3,6 +3,26 @@
 Factual record of implementation changes. "Tested" means actually executed. Static/
 syntax checks are recorded separately and are not "tested".
 
+## 2026-09-17 (real-world validation start)
+
+### Added
+- `PLANOS_VALIDATION.md` — PM's 7-day observation log for the real-world experiment.
+
+### Changed
+- `PLANOS_CONTEXT.md` — added a Project status block: MVP COMPLETE, deployment PASSED,
+  acceptance test PASSED, real-world validation IN PROGRESS, development FEATURE FREEZE.
+- `PLANOS_DEV_PROMPT.md` — added an active feature-freeze rule for the validation period.
+
+### Status
+- PM live acceptance test: PASSED.
+- V0 has entered a 7-day real-world validation period.
+- Feature development is frozen during validation.
+- Note: behavioral usefulness of the core loop is **not yet validated** — that is the
+  purpose of this period.
+
+### Code
+- No application code changed (`Code.gs`, `Index.html` untouched).
+
 ## 2026-09-17 (deployment prep)
 
 ### Added

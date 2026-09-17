@@ -3,6 +3,21 @@
 Permanent project context. Read this first before working on PlanOS. It should be
 enough to understand the project without reading the chat history or full Git log.
 
+## Project status
+
+```text
+MVP implementation:      COMPLETE
+Deployment validation:   PASSED
+Acceptance test:         PASSED
+Real-world validation:   IN PROGRESS
+Development status:      FEATURE FREEZE
+```
+
+The product is feature-complete for V0 and deployed. It is now in a 7-day real-world
+validation period (single user: the creator). During this period development is frozen
+— see the feature-freeze rule in `PLANOS_DEV_PROMPT.md` and the observation log in
+`PLANOS_VALIDATION.md`. Behavioral validation is not yet concluded.
+
 ## Product purpose
 
 PlanOS is a deliberately simple personal planning system. It exists to answer one

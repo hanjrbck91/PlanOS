@@ -12,6 +12,19 @@ Standing instructions for the implementer (Claude). Read this and
 - **Developer / Implementer (Claude):** implementation only. Do not independently
   expand scope or make product decisions that have not been approved.
 
+## ACTIVE: Feature freeze (V0 real-world validation)
+
+During the V0 real-world validation period, do **not** implement new features or UX
+improvements. This holds unless the PM explicitly reports a blocking bug, or explicitly
+ends the feature freeze.
+
+- A genuine bug (especially a blocking one) may be fixed if necessary.
+- Feature ideas and UX ideas must be **documented** (as future ideas), not implemented.
+- No UI redesign, styling changes, schema/data-model changes, analytics, AI,
+  integrations, scoring, or notifications.
+
+Lift this section only when the PM says the freeze is over.
+
 ## Read before coding
 
 1. `PLANOS_CONTEXT.md` — product, scope, architecture, data model, limitations.
