@@ -22,25 +22,36 @@ function setup() {
   ensureSheet_(ss, SHEETS.WEEKLY, ['id','week','reflection','created_at','updated_at']);
   ensureSheet_(ss, SHEETS.MONTHLY, ['id','month','reflection','created_at','updated_at']);
   ensureSheet_(ss, SHEETS.SETTINGS, ['key','value']);
+  CacheService.getScriptCache().put('planos_ready', '1', 21600);
   return 'PlanOS setup complete';
 }
 
-function getBootstrap() {
+// Cheap readiness guard for hot paths: run full setup() at most once per cache window
+// (6h) instead of on every request. setup() itself remains safe to run explicitly.
+function ensureReady_() {
+  if (CacheService.getScriptCache().get('planos_ready')) return;
   setup();
+}
+
+function getBootstrap() {
+  ensureReady_();
   const today = dateKey_(new Date());
   const tomorrow = dateKey_(addDays_(new Date(), 1));
   const plans = readRows_(SHEETS.PLANS).filter(r => dayKey_(r.date) === today || dayKey_(r.date) === tomorrow);
-  const reflections = readRows_(SHEETS.REFLECTIONS).filter(r => dayKey_(r.date) === today);
+  const reflections = readRows_(SHEETS.REFLECTIONS)
+    .filter(r => dayKey_(r.date) === today)
+    .sort(byCreatedDesc_);
   return {
     today,
     tomorrow,
     todayPlans: plans.filter(r => dayKey_(r.date) === today),
     tomorrowPlans: plans.filter(r => dayKey_(r.date) === tomorrow),
-    reflection: reflections[0] || null
+    reflections
   };
 }
 
 function addPlan(date, plan) {
+  ensureReady_();
   if (!plan || !String(plan).trim()) throw new Error('Plan cannot be empty.');
   const now = new Date().toISOString();
   const id = Utilities.getUuid();
@@ -65,13 +76,12 @@ function deletePlan(id) {
   return getBootstrap();
 }
 
+// Reflections are append-only observations: every save adds a new row, never overwrites.
 function saveReflection(date, reflection) {
+  ensureReady_();
   const text = String(reflection || '').trim();
-  const existing = readRows_(SHEETS.REFLECTIONS).find(r => dayKey_(r.date) === date);
-  const now = new Date().toISOString();
-  if (existing) {
-    updateRow_(SHEETS.REFLECTIONS, existing.id, {reflection: text, updated_at: now});
-  } else if (text) {
+  if (text) {
+    const now = new Date().toISOString();
     sheet_(SHEETS.REFLECTIONS).appendRow([Utilities.getUuid(), date, text, now, now]);
   }
   return getBootstrap();
@@ -79,42 +89,48 @@ function saveReflection(date, reflection) {
 
 // --- Weekly review ---
 function getWeeklySummary(week) {
-  setup();
+  ensureReady_();
   const start = week ? week : weekStart_(new Date());
   const end = dateKey_(addDays_(new Date(start + 'T00:00:00'), 6));
   const plans = readRows_(SHEETS.PLANS).filter(r => { const k = dayKey_(r.date); return k >= start && k <= end; });
-  const review = readRows_(SHEETS.WEEKLY).find(r => dayKey_(r.week) === start);
+  const reflections = readRows_(SHEETS.WEEKLY)
+    .filter(r => dayKey_(r.week) === start)
+    .sort(byCreatedDesc_);
   return {
     week: start,
     start, end,
     counts: countStatuses_(plans),
-    reflection: review ? review.reflection : ''
+    reflections
   };
 }
 
 function saveWeeklyReflection(week, reflection) {
-  return saveReview_(SHEETS.WEEKLY, 'week', week, reflection, dayKey_);
+  appendReview_(SHEETS.WEEKLY, week, reflection);
+  return getWeeklySummary(week);
 }
 
 // --- Monthly review ---
 function getMonthlySummary(month) {
-  setup();
+  ensureReady_();
   const key = month ? month : monthKey_(new Date());
   const plans = readRows_(SHEETS.PLANS).filter(r => monthKeyOf_(r.date) === key);
-  const review = readRows_(SHEETS.MONTHLY).find(r => monthKeyOf_(r.month) === key);
+  const reflections = readRows_(SHEETS.MONTHLY)
+    .filter(r => monthKeyOf_(r.month) === key)
+    .sort(byCreatedDesc_);
   return {
     month: key,
     counts: countStatuses_(plans),
-    reflection: review ? review.reflection : ''
+    reflections
   };
 }
 
 function saveMonthlyReflection(month, reflection) {
-  return saveReview_(SHEETS.MONTHLY, 'month', month, reflection, monthKeyOf_);
+  appendReview_(SHEETS.MONTHLY, month, reflection);
+  return getMonthlySummary(month);
 }
 
 function exportCsv() {
-  setup();
+  ensureReady_();
   return {
     plans: csv_(readRows_(SHEETS.PLANS), ['id','date','plan','status','created_at','updated_at']),
     reflections: csv_(readRows_(SHEETS.REFLECTIONS), ['id','date','reflection','created_at','updated_at']),
@@ -130,19 +146,18 @@ function countStatuses_(plans) {
   return c;
 }
 
-function saveReview_(sheetName, keyCol, keyVal, reflection, norm) {
-  setup();
+// Append-only: each weekly/monthly review save adds a new entry for that period.
+function appendReview_(sheetName, keyVal, reflection) {
+  ensureReady_();
   const text = String(reflection || '').trim();
-  const key = norm ? norm : (v => v);
-  const existing = readRows_(sheetName).find(r => key(r[keyCol]) === keyVal);
-  const now = new Date().toISOString();
-  if (existing) {
-    updateRow_(sheetName, existing.id, {reflection: text, updated_at: now});
-  } else if (text) {
+  if (text) {
+    const now = new Date().toISOString();
     sheet_(sheetName).appendRow([Utilities.getUuid(), keyVal, text, now, now]);
   }
-  return true;
 }
+
+// Sort reflection/review rows newest-first by created_at (ISO strings sort chronologically).
+function byCreatedDesc_(a, b) { return String(b.created_at).localeCompare(String(a.created_at)); }
 
 function ensureSheet_(ss, name, headers) {
   let sh = ss.getSheetByName(name);

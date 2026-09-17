@@ -106,6 +106,19 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-text-
 .counts span{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted2)}
 .rev-block .rarea{border-color:var(--line2);background:#00000026}
 
+/* reflection / review history */
+.notes{margin-top:16px}
+.notes-h{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;opacity:.6;margin-bottom:8px}
+.note{padding:10px 0;border-top:1px solid #ffffff1f}
+.reflect .note{border-color:#ffffff2b}
+.note:first-of-type{border-top:0}
+.note-t{font-family:var(--mono);font-size:10px;letter-spacing:.08em;opacity:.6;margin-bottom:3px}
+.note-b{font-size:14.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+
+/* sync indicator */
+.sync{display:none;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--olive);margin-top:6px}
+body.busy .sync{display:block}
+
 .hidden{display:none}
 
 /* toast */
@@ -123,7 +136,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-text-
 <body><main class="app">
   <div class="top">
     <div><div class="brand">PlanOS</div><div class="tag">PLAN · EXECUTE · REFLECT</div></div>
-    <div class="hd-right"><div id="hdDate" class="hd-date"></div><div class="hd-note">Keep it short.<br>Get back to life.</div></div>
+    <div class="hd-right"><div id="hdDate" class="hd-date"></div><div class="hd-note">Keep it short.<br>Get back to life.</div><div id="sync" class="sync">Syncing…</div></div>
   </div>
 
   <div class="grid">
@@ -144,8 +157,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-text-
     <section class="card reflect">
       <div class="head"><span class="label">Reflection</span></div>
       <p class="muted" style="margin:0 0 10px;font-size:13px;line-height:1.45">What happened? What worked? What didn't? What should change tomorrow?</p>
-      <textarea id="reflection" class="rarea" placeholder="Write your reflection…"></textarea>
+      <textarea id="reflection" class="rarea" placeholder="Write a reflection…"></textarea>
       <button class="btn" onclick="saveReflection()">Save reflection</button>
+      <div id="todayNotes" class="notes"></div>
     </section>
 
     <div class="tiles">
@@ -160,6 +174,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-text-
         <div id="weekCounts" class="counts"></div>
         <textarea id="weekReflection" class="rarea" placeholder="Weekly reflection — what worked, what was unrealistic, what changes next week?"></textarea>
         <button class="btn" style="background:var(--olive);color:#14130f;border-color:var(--olive)" onclick="saveWeekly()">Save weekly</button>
+        <div id="weekNotes" class="notes"></div>
       </div>
       <div class="rev-block">
         <div class="head"><span class="label">This month</span></div>
@@ -167,6 +182,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-text-
         <div id="monthCounts" class="counts"></div>
         <textarea id="monthReflection" class="rarea" placeholder="Monthly reflection — patterns, recurring problems, recurring successes?"></textarea>
         <button class="btn" style="background:var(--olive);color:#14130f;border-color:var(--olive)" onclick="saveMonthly()">Save monthly</button>
+        <div id="monthNotes" class="notes"></div>
       </div>
     </section>
   </div>
@@ -174,18 +190,25 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-text-
 <div id="toast"></div>
 <script>
 let state, week, month;
-function load(){google.script.run.withSuccessHandler(render).withFailureHandler(err).getBootstrap()}
+
+// --- server-call plumbing: one request per action, with a lightweight busy state ---
+let inflight=0;
+function setBusy(on){inflight+=on?1:-1;if(inflight<0)inflight=0;document.body.classList.toggle('busy',inflight>0)}
+function fin(fn){return function(x){setBusy(false);if(fn)fn(x)}}
 function err(e){toast(e&&e.message?e.message:String(e))}
+
+function load(){setBusy(true);google.script.run.withSuccessHandler(fin(render)).withFailureHandler(fin(err)).getBootstrap()}
+
 function render(s){
   state=s;
   document.getElementById('hdDate').textContent=hdDate(s.today);
   document.getElementById('todayDate').textContent=pretty(s.today);
   document.getElementById('tomorrowDate').textContent=pretty(s.tomorrow);
-  document.getElementById('reflection').value=s.reflection?.reflection||'';
   document.getElementById('todayCount').textContent=doneCount(s.todayPlans);
   document.getElementById('tomorrowCount').textContent=String(s.tomorrowPlans.length);
   renderPlans('todayPlans',s.todayPlans);
   renderPlans('tomorrowPlans',s.tomorrowPlans);
+  renderNotes('todayNotes', s.reflections, 'time', "Today's notes");
 }
 function doneCount(plans){const d=plans.filter(p=>p.status==='done').length;return d+'/'+plans.length}
 function hdDate(k){const d=new Date(k+'T00:00:00');return d.toLocaleDateString(undefined,{weekday:'short',day:'2-digit',month:'short',year:'numeric'})}
@@ -198,27 +221,38 @@ function renderPlans(id,plans){
   ).join('')||'<div class="empty">Nothing planned yet.</div>';
 }
 function icon(s){return {planned:'○',done:'✓',partial:'◐',skipped:'–',moved:'→'}[s]||'○'}
-function cycle(id,s){const next={planned:'done',done:'partial',partial:'skipped',skipped:'moved',moved:'planned'}[s];google.script.run.withSuccessHandler(render).withFailureHandler(err).setPlanStatus(id,next)}
-function add(which){const el=document.getElementById(which+'Input'),v=el.value.trim();if(!v)return;google.script.run.withSuccessHandler(s=>{el.value='';render(s);el.focus()}).withFailureHandler(err).addPlan(which==='today'?state.today:state.tomorrow,v)}
-function edit(id){const p=(state.todayPlans.concat(state.tomorrowPlans)).find(x=>x.id===id);if(!p)return;const v=prompt('Edit plan',p.plan);if(v===null)return;google.script.run.withSuccessHandler(render).withFailureHandler(err).updatePlan(id,v)}
-function removePlan(id){if(!confirm('Remove this plan?'))return;google.script.run.withSuccessHandler(render).withFailureHandler(err).deletePlan(id)}
-function saveReflection(){google.script.run.withSuccessHandler(()=>toast('Reflection saved.')).withFailureHandler(err).saveReflection(state.today,document.getElementById('reflection').value)}
+
+// reflection/review history (append-only, newest first)
+function renderNotes(id, arr, mode, heading){
+  const el=document.getElementById(id); if(!el) return;
+  if(!arr||!arr.length){el.innerHTML='';return}
+  el.innerHTML=`<div class="notes-h">${heading}</div>`+arr.map(r=>
+    `<div class="note"><div class="note-t">${stamp(r.created_at,mode)}</div><div class="note-b">${escapeHtml(r.reflection)}</div></div>`
+  ).join('');
+}
+function stamp(iso,mode){const d=new Date(iso);if(isNaN(d.getTime()))return '';const t=d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});return mode==='time'?t:d.toLocaleDateString(undefined,{day:'numeric',month:'short'})+' · '+t}
+
+function cycle(id,s){const next={planned:'done',done:'partial',partial:'skipped',skipped:'moved',moved:'planned'}[s];setBusy(true);google.script.run.withSuccessHandler(fin(render)).withFailureHandler(fin(err)).setPlanStatus(id,next)}
+function add(which){const el=document.getElementById(which+'Input'),v=el.value.trim();if(!v)return;setBusy(true);google.script.run.withSuccessHandler(fin(s=>{el.value='';render(s);el.focus()})).withFailureHandler(fin(err)).addPlan(which==='today'?state.today:state.tomorrow,v)}
+function edit(id){const p=(state.todayPlans.concat(state.tomorrowPlans)).find(x=>x.id===id);if(!p)return;const v=prompt('Edit plan',p.plan);if(v===null)return;setBusy(true);google.script.run.withSuccessHandler(fin(render)).withFailureHandler(fin(err)).updatePlan(id,v)}
+function removePlan(id){if(!confirm('Remove this plan?'))return;setBusy(true);google.script.run.withSuccessHandler(fin(render)).withFailureHandler(fin(err)).deletePlan(id)}
+function saveReflection(){const ta=document.getElementById('reflection'),v=ta.value.trim();if(!v){toast('Nothing to save.');return}setBusy(true);google.script.run.withSuccessHandler(fin(s=>{ta.value='';render(s);toast('Reflection saved.')})).withFailureHandler(fin(err)).saveReflection(state.today,v)}
 
 function toggleReview(){const el=document.getElementById('review');el.classList.toggle('hidden');if(!el.classList.contains('hidden')){loadReview();el.scrollIntoView({behavior:'smooth',block:'start'})}}
 function loadReview(){
-  google.script.run.withSuccessHandler(renderWeek).withFailureHandler(err).getWeeklySummary(null);
-  google.script.run.withSuccessHandler(renderMonth).withFailureHandler(err).getMonthlySummary(null);
+  setBusy(true);google.script.run.withSuccessHandler(fin(renderWeek)).withFailureHandler(fin(err)).getWeeklySummary(null);
+  setBusy(true);google.script.run.withSuccessHandler(fin(renderMonth)).withFailureHandler(fin(err)).getMonthlySummary(null);
 }
-function renderWeek(w){week=w.week;document.getElementById('weekRange').textContent=pretty(w.start)+' – '+pretty(w.end);document.getElementById('weekCounts').innerHTML=counts(w.counts);document.getElementById('weekReflection').value=w.reflection||''}
-function renderMonth(m){month=m.month;const d=new Date(m.month+'-01T00:00:00');document.getElementById('monthLabel').textContent=d.toLocaleDateString(undefined,{month:'long',year:'numeric'});document.getElementById('monthCounts').innerHTML=counts(m.counts);document.getElementById('monthReflection').value=m.reflection||''}
+function renderWeek(w){week=w.week;document.getElementById('weekRange').textContent=pretty(w.start)+' – '+pretty(w.end);document.getElementById('weekCounts').innerHTML=counts(w.counts);document.getElementById('weekReflection').value='';renderNotes('weekNotes',w.reflections,'date','Previous notes')}
+function renderMonth(m){month=m.month;const d=new Date(m.month+'-01T00:00:00');document.getElementById('monthLabel').textContent=d.toLocaleDateString(undefined,{month:'long',year:'numeric'});document.getElementById('monthCounts').innerHTML=counts(m.counts);document.getElementById('monthReflection').value='';renderNotes('monthNotes',m.reflections,'date','Previous notes')}
 function counts(c){return[['total','Plans'],['done','Done'],['partial','Partial'],['skipped','Skipped'],['moved','Moved']].map(([k,l])=>`<div><b>${c[k]||0}</b><span>${l}</span></div>`).join('')}
-function saveWeekly(){google.script.run.withSuccessHandler(()=>toast('Weekly saved.')).withFailureHandler(err).saveWeeklyReflection(week,document.getElementById('weekReflection').value)}
-function saveMonthly(){google.script.run.withSuccessHandler(()=>toast('Monthly saved.')).withFailureHandler(err).saveMonthlyReflection(month,document.getElementById('monthReflection').value)}
+function saveWeekly(){const ta=document.getElementById('weekReflection'),v=ta.value.trim();if(!v){toast('Nothing to save.');return}setBusy(true);google.script.run.withSuccessHandler(fin(w=>{renderWeek(w);toast('Weekly saved.')})).withFailureHandler(fin(err)).saveWeeklyReflection(week,v)}
+function saveMonthly(){const ta=document.getElementById('monthReflection'),v=ta.value.trim();if(!v){toast('Nothing to save.');return}setBusy(true);google.script.run.withSuccessHandler(fin(m=>{renderMonth(m);toast('Monthly saved.')})).withFailureHandler(fin(err)).saveMonthlyReflection(month,v)}
 
 let toastT;
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1900)}
 
-function exportData(){google.script.run.withSuccessHandler(data=>{download('PlanOS_Plans.csv',data.plans);download('PlanOS_Reflections.csv',data.reflections);download('PlanOS_WeeklyReviews.csv',data.weekly);download('PlanOS_MonthlyReviews.csv',data.monthly);toast('CSV exported.')}).withFailureHandler(err).exportCsv()}
+function exportData(){setBusy(true);google.script.run.withSuccessHandler(fin(data=>{download('PlanOS_Plans.csv',data.plans);download('PlanOS_Reflections.csv',data.reflections);download('PlanOS_WeeklyReviews.csv',data.weekly);download('PlanOS_MonthlyReviews.csv',data.monthly);toast('CSV exported.')})).withFailureHandler(fin(err)).exportCsv()}
 function download(name,text){const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(text);a.download=name;a.click()}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 load();

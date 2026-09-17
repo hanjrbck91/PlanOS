@@ -121,17 +121,28 @@ never dropped.
 Keys: `date` and `week` are `yyyy-MM-dd` (week = the Monday of that week). `month` is
 `yyyy-MM`. `id` is a UUID. Timestamps are ISO strings. Dates use the script timezone.
 
+**Reflection history model:** `Reflections`, `WeeklyReviews`, and `MonthlyReviews` are
+**append-only** — a period may hold many rows, ordered by `created_at`. `getBootstrap`
+and the summaries return a `reflections` array (newest first). Reflections are
+observations and are never overwritten; plans are intentions and remain editable in
+place. Because Google Sheets coerces appended date strings into Date cells, all
+date/week/month matching goes through `dayKey_()`/`monthKeyOf_()` (see Decision 006).
+
 ## Current functionality (verified present)
 
-Server (`Code.gs`): `doGet`, `setup`, `getBootstrap`, `addPlan`, `updatePlan`,
-`setPlanStatus`, `deletePlan`, `saveReflection`, `getWeeklySummary`,
-`saveWeeklyReflection`, `getMonthlySummary`, `saveMonthlyReflection`, `exportCsv`,
-plus private helpers (`ensureSheet_`, `readRows_`, `updateRow_`, `deleteRow_`,
-`countStatuses_`, `saveReview_`, date helpers, `csv_`).
+Server (`Code.gs`): `doGet`, `setup`, `ensureReady_` (cached readiness guard so full
+`setup()` runs at most once per 6h window instead of every request), `getBootstrap`,
+`addPlan`, `updatePlan`, `setPlanStatus`, `deletePlan`, `saveReflection`,
+`getWeeklySummary`, `saveWeeklyReflection`, `getMonthlySummary`,
+`saveMonthlyReflection`, `exportCsv`, plus private helpers (`ensureSheet_`, `readRows_`,
+`updateRow_`, `deleteRow_`, `countStatuses_`, `appendReview_`, `byCreatedDesc_`,
+`dayKey_`/`monthKeyOf_` and other date helpers, `csv_`).
 
 Client (`Index.html`): Today + Tomorrow lists, add/edit/delete, one-tap status cycle
-(planned→done→partial→skipped→moved→planned), daily reflection, Review panel (weekly +
-monthly, behind a footer toggle), CSV export of all four sheets.
+(planned→done→partial→skipped→moved→planned), append-only daily reflection with a
+"Today's notes" history, Review panel (weekly + monthly counts + append-only history,
+behind a footer toggle), CSV export of all four sheets, and a lightweight "Syncing…"
+indicator during in-flight requests. Each action is one server round-trip.
 
 ## Known limitations
 

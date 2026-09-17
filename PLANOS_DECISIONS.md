@@ -108,3 +108,28 @@ data mismatched); changing `readRows_` to blanket-format all Dates (would corrup
 Revisit when:
 The storage layer changes away from Google Sheets (a real DB would remove the coercion),
 at which point the normalization can be simplified.
+
+## Decision 007 — Reflections are append-only observations; plans are mutable intentions
+
+Status: Accepted
+
+Decision:
+Every reflection save (daily, weekly, monthly) appends a new row. Reflections are never
+overwritten or deduplicated by date/week/month. Plans, by contrast, remain editable in
+place (Decision 005).
+
+Reason:
+A reflection records what the user thought at a point in time — its value is the
+historical record, so overwriting destroys data and misrepresents the day. A plan is an
+intended action, so correcting its wording is legitimate. The existing schemas already
+allow multiple rows sharing a date/week/month (`id` + `created_at`), so no schema change
+is needed.
+
+Alternatives considered:
+Single mutable reflection per period (the previous behavior) — rejected: it silently
+lost earlier entries. A new `sequence`/`version` column — unnecessary; `id` +
+`created_at` already order the history.
+
+Revisit when:
+Never expected to revert. If editing/deleting an individual reflection entry is ever
+wanted, add it as an explicit per-entry action, not by returning to overwrite-on-save.

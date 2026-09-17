@@ -1,5 +1,49 @@
 # PlanOS Changelog
 
+## 2026-09-17 (reflection semantics, mobile-first, performance)
+
+### Reflections are now append-only (data semantics fix)
+- Root cause: `saveReflection`/`saveReview_` did find-then-update, treating a
+  day/week/month reflection as one mutable record — a second entry overwrote the first.
+- Fix (`Code.gs`): every save **appends a new row**. `getBootstrap`,
+  `getWeeklySummary`, `getMonthlySummary` now return a `reflections` **array** for the
+  period (newest first, via `byCreatedDesc_`) instead of a single `reflection` string.
+  Save functions return the refreshed state/summary so history re-renders in one call.
+- Fix (`Index.html`): Reflection card and both Review blocks show a compact
+  "Today's notes" / "Previous notes" history (timestamp + text, newest first). After a
+  save the input clears, the new entry appears, and older entries remain. Existing rows
+  (including duplicate test reflections) display correctly — they are now first-class
+  history, not conflicting singletons.
+- Plans remain mutable (editing a plan still overwrites in place). See Decision 007.
+
+### Genuine mobile-first layout
+- Verified/hardened single-column stacking (Today → Tomorrow → Reflection → Review →
+  Export). Two-column layout appears only at ≥760px as a desktop enhancement; Today
+  spans full width there. Long reflection text wraps (`word-break`).
+
+### Performance
+- `setup()` ran on every hot request (5× sheet existence checks per call). Added
+  `ensureReady_()` — a cached readiness flag (`CacheService`, 6h) that runs full
+  `setup()` at most once per window; hot paths now do a single cache read. `setup()`
+  stays safe to run explicitly. Server round-trips per action were already minimal
+  (1 per action; review opens 2) and are unchanged — no optimistic UI added.
+- Added a lightweight "Syncing…" indicator (header) shown only while a request is in
+  flight; no spinners/animations.
+
+### Data model impact
+- No schema change. Existing rows remain valid. Multiple rows per date/week/month are
+  now supported and surfaced. Status counts still count Plans only.
+
+### Tests
+- Static: `Code.gs` `node --check`; `Index.html` inline script parses.
+- Local (in-app browser, stubbed `google.script.run`): append-only verified — saved
+  Reflection A then B; both remain, newest first, prior entry kept, input cleared.
+  Weekly + monthly append verified the same way; plan status counts unaffected.
+  Responsive checked at 320 / 360 / 375 / 390 / 430 px (single column, no horizontal
+  overflow) and at 1000px (Today full-width, Tomorrow+Reflection two columns).
+- Live: not performed (no access to the deployed app / Google account here).
+
+
 ## 2026-09-17 (blocking live bug: frontend not updating after add)
 
 ### Observed (live, deployed V0)
