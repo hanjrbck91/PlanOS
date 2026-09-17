@@ -1,5 +1,49 @@
 # PlanOS Changelog
 
+## 2026-09-17 (mobile-first UI redesign)
+
+### Changed
+- `Index.html` fully restyled: mobile-first modular tile/card layout, retro
+  "digital instrument" visual language (charcoal base; terracotta Today hero, cream
+  Tomorrow, brown Reflection; muted olive accents; chunky monospace headings/labels,
+  system-sans body — no external fonts). Desktop is a responsive 2-column expansion
+  (Today spans full width). Single-page scroll model preserved (no new navigation).
+- Plan rows: compact status button + name + status label + delete; status glyphs
+  now ○ planned / ✓ done / ◐ partial / – skipped / → moved (visual only).
+- Add-plan input made compact with an adjacent `+` button; Enter-to-add on both
+  Today and Tomorrow inputs.
+- Reflection restyled as a deliberate "close the day" card (same prompt, no scoring).
+- Review/Export moved into two compact secondary tiles; Review reveals the existing
+  weekly/monthly panel (now styled, counts unchanged).
+- Toast replaces `alert()`-style status messages for save/export feedback and errors.
+- Added a small done/total count on Today and an item count on Tomorrow — derived
+  from existing status data (display only, no new metric/score/chart).
+
+### Fixed
+- Added `<meta charset="utf-8">` so status/dash/arrow glyphs render correctly
+  regardless of server charset headers.
+
+### Not changed
+- No new features. No categories/tags, charts, scores, streaks, quotes, settings, or
+  navigation from the reference image were implemented (visual language only).
+- `Code.gs` unchanged. Data model, status model, date logic, review calculations, and
+  CSV structure unchanged. All 11 `google.script.run` calls preserved with same args.
+
+### Tested
+- Static: `Code.gs` `node --check`; `Index.html` inline script parses; verified all
+  element ids and all 11 backend calls present.
+- Local/visual: rendered `Index.html` with a stubbed `google.script.run` over a local
+  HTTP server in the in-app browser. Verified Today/Tomorrow/Reflection/Review render
+  with sample data (incl. a plan with an apostrophe and one with a backslash), status
+  glyphs, and the Review toggle. Checked layout at 360 / 375 / 1100 px — no horizontal
+  overflow (`scrollWidth == innerWidth` at 360).
+
+### Not tested (requires live deployment)
+- Actual Apps Script read/write round-trips (add/edit/delete/status, reflections,
+  weekly/monthly saves) and CSV download — behavior unchanged from the previously
+  accepted V0, but not re-run live in this environment.
+
+
 Factual record of implementation changes. "Tested" means actually executed. Static/
 syntax checks are recorded separately and are not "tested".
 

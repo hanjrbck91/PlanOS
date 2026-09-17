@@ -93,6 +93,18 @@ without explicit approval. PlanOS is the planning layer only; future domain syst
 (RunnerOS, LearnOS, MemoryOS, etc.) would own their own data — PlanOS must not
 duplicate them.
 
+## UI design direction
+
+Mobile-first, modular tile/card layout with a retro "digital instrument / personal OS"
+feel — not a SaaS dashboard. Charcoal base; a small restrained palette carries
+hierarchy (terracotta = Today hero, cream = Tomorrow, brown = Reflection, muted olive =
+accents/save). Chunky monospace for headings/labels + status metadata; system-sans for
+body. No external fonts, no frameworks, no animation libraries — plain CSS/JS in
+`Index.html`. Desktop is a responsive expansion (2-column; Today spans full width);
+mobile is the primary target (usable with no horizontal scroll from ~360px up). Status
+glyphs: ○ planned, ✓ done, ◐ partial, – skipped, → moved. This is presentation only —
+it does not change scope, data, or behavior.
+
 ## Data model (actual, verified in Code.gs)
 
 Sheets are created/initialized idempotently by `setup()`; existing sheets and data are

@@ -1,39 +1,210 @@
 <!doctype html>
-<html><head><base target="_top"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-:root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#161616;background:#f6f6f2}*{box-sizing:border-box}body{margin:0}.app{max-width:680px;margin:auto;padding:28px 18px 48px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}.brand{font-weight:800;letter-spacing:-.04em;font-size:22px}.sub{font-size:12px;color:#777}.section{margin:28px 0}.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#777;margin-bottom:9px}.date{font-size:14px;color:#555;margin-bottom:14px}.plan{display:grid;grid-template-columns:34px 1fr 34px;align-items:center;gap:8px;padding:13px 0;border-bottom:1px solid #ddd}.plantext{font-size:16px;line-height:1.35;cursor:pointer}.status{width:30px;height:30px;border:1px solid #bbb;border-radius:50%;background:transparent;cursor:pointer}.status.done{background:#171717;color:white}.status.partial{background:#ddd}.status.skipped{opacity:.5}.status.moved{border-style:dashed}.actions{display:flex;gap:7px}.mini{border:0;background:none;color:#888;cursor:pointer;font-size:12px}.add{display:flex;gap:8px;margin-top:13px}.input,.reflection{width:100%;border:1px solid #ccc;border-radius:9px;background:white;padding:11px 12px;font:inherit}.btn{border:1px solid #bbb;background:white;border-radius:9px;padding:10px 14px;cursor:pointer}.btn.primary{background:#171717;color:#fff;border-color:#171717}.tomorrow{padding-top:5px}.reflection{min-height:130px;resize:vertical}.muted{color:#888;font-size:13px}.footer{margin-top:36px;display:flex;justify-content:space-between;align-items:center}.hidden{display:none}.strike{text-decoration:line-through;color:#888}.counts{display:flex;flex-wrap:wrap;gap:14px;margin:6px 0 14px}.counts b{display:block;font-size:20px;font-weight:700;letter-spacing:-.02em}.counts span{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#777}
-</style></head><body><main class="app"><div class="top"><div class="brand">PlanOS</div><div class="sub">Plan · Execute · Reflect</div></div>
-<section class="section"><div class="eyebrow">Today</div><div id="todayDate" class="date"></div><div id="todayPlans"></div><div class="add"><input id="todayInput" class="input" placeholder="Add a plan…"><button class="btn primary" onclick="add('today')">Add</button></div></section>
-<section class="section tomorrow"><div class="eyebrow">Tomorrow</div><div id="tomorrowDate" class="date"></div><div id="tomorrowPlans"></div><div class="add"><input id="tomorrowInput" class="input" placeholder="Prepare tomorrow…"><button class="btn primary" onclick="add('tomorrow')">Add</button></div></section>
-<section class="section"><div class="eyebrow">Close today</div><p class="muted">What happened? What worked? What didn't? What should change tomorrow?</p><textarea id="reflection" class="reflection" placeholder="Write your reflection…"></textarea><div style="margin-top:9px"><button class="btn primary" onclick="saveReflection()">Save reflection</button></div></section>
+<html><head><meta charset="utf-8"><base target="_top"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>
+:root{
+  --bg:#141310; --ink:#ece7d9; --muted:#9c968676; --muted2:#a9a290;
+  --line:#3a362d; --line2:#4a453a;
+  --cream:#ece7d9; --creamink:#1c1a15;
+  --terra:#c06544; --terraink:#1a0f0a;
+  --brown:#5f4a39; --olive:#8a9256;
+  --panel:#1c1b16;
+  --mono:ui-monospace,"Cascadia Mono","Segoe UI Mono",Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-text-size-adjust:100%;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.app{max-width:520px;margin:0 auto;padding:20px 14px 40px}
 
-<section id="review" class="section hidden">
-  <div class="eyebrow">This week</div><div id="weekRange" class="date"></div>
-  <div id="weekCounts" class="counts"></div>
-  <textarea id="weekReflection" class="reflection" placeholder="Weekly reflection — what worked, what was unrealistic, what changes next week?"></textarea>
-  <div style="margin-top:9px"><button class="btn primary" onclick="saveWeekly()">Save weekly</button></div>
+/* header */
+.top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;gap:10px}
+.brand{font-family:var(--mono);font-weight:800;font-size:30px;letter-spacing:-.03em;line-height:1}
+.tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.22em;color:var(--muted2);margin-top:7px}
+.hd-right{text-align:right;font-family:var(--mono)}
+.hd-date{font-size:13px;letter-spacing:.04em;color:var(--ink)}
+.hd-note{font-size:10.5px;color:var(--muted2);margin-top:6px;line-height:1.5}
 
-  <div class="eyebrow" style="margin-top:28px">This month</div><div id="monthLabel" class="date"></div>
-  <div id="monthCounts" class="counts"></div>
-  <textarea id="monthReflection" class="reflection" placeholder="Monthly reflection — patterns, recurring problems, recurring successes?"></textarea>
-  <div style="margin-top:9px"><button class="btn primary" onclick="saveMonthly()">Save monthly</button></div>
-</section>
+/* grid */
+.grid{display:grid;grid-template-columns:1fr;gap:12px}
 
-<div class="footer"><div style="display:flex;gap:14px"><button class="mini" onclick="toggleReview()">Review</button><button class="mini" onclick="exportData()">Export CSV</button></div><span class="sub">Keep it short. Get back to life.</span></div></main>
+/* card base */
+.card{border:1px solid var(--line);border-radius:14px;padding:16px;background:var(--panel)}
+.card .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.card .label{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase}
+.count{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.04em}
+
+/* hero today */
+.today{background:var(--terra);color:var(--terraink);border-color:#00000033}
+.today .label,.today .count{color:var(--terraink)}
+.today .muted{color:#1a0f0a99}
+
+/* tomorrow */
+.tomorrow{background:var(--cream);color:var(--creamink);border-color:#00000022}
+.tomorrow .label,.tomorrow .count{color:var(--creamink)}
+.tomorrow .muted{color:#1c1a1599}
+
+/* reflection */
+.reflect{background:var(--brown);color:var(--cream)}
+.reflect .muted{color:#ece7d9aa}
+
+/* plan rows */
+.plans{display:flex;flex-direction:column}
+.plan{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:10px;padding:11px 0;border-top:1px solid currentColor}
+.plan:first-child{border-top:0;padding-top:2px}
+.today .plan,.tomorrow .plan{border-color:#00000022}
+.status{width:32px;height:32px;min-width:32px;border:1.5px solid currentColor;border-radius:9px;background:transparent;color:inherit;cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;font-family:var(--mono);opacity:.9}
+.status:active{transform:translateY(1px)}
+.status.done{background:var(--terraink);color:var(--cream);border-color:var(--terraink)}
+.tomorrow .status.done,.today .status.done{background:currentColor}
+.today .status.done{color:var(--terra);background:var(--terraink)}
+.tomorrow .status.done{color:var(--cream);background:var(--creamink)}
+.status.partial{opacity:1}
+.status.skipped{opacity:.45}
+.status.moved{border-style:dashed}
+.ptext{min-width:0}
+.pname{font-size:15.5px;line-height:1.3;cursor:pointer;word-break:break-word}
+.pname.strike{text-decoration:line-through;opacity:.55}
+.pstat{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;opacity:.6;margin-top:3px}
+.del{border:0;background:none;color:inherit;opacity:.5;cursor:pointer;font-size:20px;line-height:1;padding:4px 6px;font-family:var(--mono)}
+.del:active{opacity:1}
+.empty{font-family:var(--mono);font-size:12px;letter-spacing:.04em;opacity:.6;padding:6px 0}
+
+/* add row */
+.add{display:flex;gap:8px;margin-top:12px}
+.input{flex:1;min-width:0;border:1.5px solid var(--line2);border-radius:10px;background:#00000026;color:inherit;padding:12px 13px;font:inherit;font-size:15px}
+.today .input,.tomorrow .input{background:#00000014;border-color:#00000033}
+.input::placeholder{color:currentColor;opacity:.5}
+.input:focus{outline:2px solid var(--olive);outline-offset:1px}
+.addbtn{min-width:48px;border:1.5px solid currentColor;border-radius:10px;background:var(--terraink);color:var(--cream);font-size:22px;cursor:pointer;font-family:var(--mono);line-height:1}
+.tomorrow .addbtn{background:var(--creamink);color:var(--cream)}
+.reflect .addbtn{background:var(--terra);color:var(--cream);border-color:var(--terra)}
+.addbtn:active{transform:translateY(1px)}
+
+/* reflection textarea */
+.rarea{width:100%;min-height:120px;resize:vertical;border:1.5px solid #00000033;border-radius:10px;background:#00000022;color:inherit;padding:12px 13px;font:inherit;font-size:15px;line-height:1.4}
+.rarea::placeholder{color:currentColor;opacity:.5}
+.rarea:focus{outline:2px solid var(--olive);outline-offset:1px}
+.btn{margin-top:10px;border:1.5px solid currentColor;background:transparent;color:inherit;border-radius:10px;padding:11px 16px;font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;font-weight:700}
+.reflect .btn{background:var(--cream);color:var(--brown);border-color:var(--cream)}
+.btn:active{transform:translateY(1px)}
+
+/* utility tiles row */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{border:1px solid var(--line);border-radius:14px;padding:15px;background:var(--panel);cursor:pointer;text-align:left;color:inherit;font:inherit;display:flex;flex-direction:column;gap:8px}
+.tile:active{transform:translateY(1px)}
+.tile .tl{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase}
+.tile .ts{font-size:12px;color:var(--muted2);line-height:1.4}
+.tile.review{border-color:var(--line2)}
+
+/* review panel */
+#review{grid-column:1/-1}
+.rev-block+.rev-block{margin-top:22px;padding-top:22px;border-top:1px solid var(--line)}
+.rev-range{font-family:var(--mono);font-size:12px;color:var(--muted2);margin-bottom:12px}
+.counts{display:flex;flex-wrap:wrap;gap:12px 18px;margin-bottom:14px}
+.counts>div{min-width:52px}
+.counts b{display:block;font-family:var(--mono);font-size:22px;font-weight:800;letter-spacing:-.02em}
+.counts span{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted2)}
+.rev-block .rarea{border-color:var(--line2);background:#00000026}
+
+.hidden{display:none}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--olive);color:#14130f;font-family:var(--mono);font-size:12px;letter-spacing:.06em;padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .18s;z-index:9}
+#toast.show{opacity:1}
+
+/* desktop */
+@media(min-width:760px){
+  .app{max-width:900px;padding:28px 24px 56px}
+  .brand{font-size:36px}
+  .grid{grid-template-columns:1fr 1fr;align-items:start}
+  .today{grid-column:1/-1}
+}
+</style></head>
+<body><main class="app">
+  <div class="top">
+    <div><div class="brand">PlanOS</div><div class="tag">PLAN · EXECUTE · REFLECT</div></div>
+    <div class="hd-right"><div id="hdDate" class="hd-date"></div><div class="hd-note">Keep it short.<br>Get back to life.</div></div>
+  </div>
+
+  <div class="grid">
+    <section class="card today">
+      <div class="head"><span class="label">Today</span><span id="todayCount" class="count"></span></div>
+      <div id="todayDate" class="pstat" style="opacity:.55;margin:-6px 0 12px"></div>
+      <div id="todayPlans" class="plans"></div>
+      <div class="add"><input id="todayInput" class="input" placeholder="Add a plan…" onkeydown="if(event.key==='Enter')add('today')"><button class="addbtn" onclick="add('today')" aria-label="Add today plan">+</button></div>
+    </section>
+
+    <section class="card tomorrow">
+      <div class="head"><span class="label">Tomorrow</span><span id="tomorrowCount" class="count"></span></div>
+      <div id="tomorrowDate" class="pstat" style="opacity:.55;margin:-6px 0 12px"></div>
+      <div id="tomorrowPlans" class="plans"></div>
+      <div class="add"><input id="tomorrowInput" class="input" placeholder="Prepare tomorrow…" onkeydown="if(event.key==='Enter')add('tomorrow')"><button class="addbtn" onclick="add('tomorrow')" aria-label="Add tomorrow plan">+</button></div>
+    </section>
+
+    <section class="card reflect">
+      <div class="head"><span class="label">Reflection</span></div>
+      <p class="muted" style="margin:0 0 10px;font-size:13px;line-height:1.45">What happened? What worked? What didn't? What should change tomorrow?</p>
+      <textarea id="reflection" class="rarea" placeholder="Write your reflection…"></textarea>
+      <button class="btn" onclick="saveReflection()">Save reflection</button>
+    </section>
+
+    <div class="tiles">
+      <button class="tile review" onclick="toggleReview()"><span class="tl">Review ▸</span><span class="ts">Weekly · Monthly. Learn and adjust.</span></button>
+      <button class="tile" onclick="exportData()"><span class="tl">Export ▾</span><span class="ts">CSV. Your data, your insights.</span></button>
+    </div>
+
+    <section id="review" class="card hidden">
+      <div class="rev-block">
+        <div class="head"><span class="label">This week</span></div>
+        <div id="weekRange" class="rev-range"></div>
+        <div id="weekCounts" class="counts"></div>
+        <textarea id="weekReflection" class="rarea" placeholder="Weekly reflection — what worked, what was unrealistic, what changes next week?"></textarea>
+        <button class="btn" style="background:var(--olive);color:#14130f;border-color:var(--olive)" onclick="saveWeekly()">Save weekly</button>
+      </div>
+      <div class="rev-block">
+        <div class="head"><span class="label">This month</span></div>
+        <div id="monthLabel" class="rev-range"></div>
+        <div id="monthCounts" class="counts"></div>
+        <textarea id="monthReflection" class="rarea" placeholder="Monthly reflection — patterns, recurring problems, recurring successes?"></textarea>
+        <button class="btn" style="background:var(--olive);color:#14130f;border-color:var(--olive)" onclick="saveMonthly()">Save monthly</button>
+      </div>
+    </section>
+  </div>
+</main>
+<div id="toast"></div>
 <script>
 let state, week, month;
 function load(){google.script.run.withSuccessHandler(render).withFailureHandler(err).getBootstrap()}
-function err(e){alert(e&&e.message?e.message:String(e))}
-function render(s){state=s;document.getElementById('todayDate').textContent=pretty(s.today);document.getElementById('tomorrowDate').textContent=pretty(s.tomorrow);document.getElementById('reflection').value=s.reflection?.reflection||'';renderPlans('todayPlans',s.todayPlans);renderPlans('tomorrowPlans',s.tomorrowPlans)}
+function err(e){toast(e&&e.message?e.message:String(e))}
+function render(s){
+  state=s;
+  document.getElementById('hdDate').textContent=hdDate(s.today);
+  document.getElementById('todayDate').textContent=pretty(s.today);
+  document.getElementById('tomorrowDate').textContent=pretty(s.tomorrow);
+  document.getElementById('reflection').value=s.reflection?.reflection||'';
+  document.getElementById('todayCount').textContent=doneCount(s.todayPlans);
+  document.getElementById('tomorrowCount').textContent=String(s.tomorrowPlans.length);
+  renderPlans('todayPlans',s.todayPlans);
+  renderPlans('tomorrowPlans',s.tomorrowPlans);
+}
+function doneCount(plans){const d=plans.filter(p=>p.status==='done').length;return d+'/'+plans.length}
+function hdDate(k){const d=new Date(k+'T00:00:00');return d.toLocaleDateString(undefined,{weekday:'short',day:'2-digit',month:'short',year:'numeric'})}
 function pretty(k){const d=new Date(k+'T00:00:00');return d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}
-function renderPlans(id,plans){document.getElementById(id).innerHTML=plans.map(p=>`<div class="plan"><button class="status ${p.status}" onclick="cycle('${p.id}','${p.status}')">${icon(p.status)}</button><div class="plantext ${p.status==='skipped'?'strike':''}" onclick="edit('${p.id}')">${escapeHtml(p.plan)}</div><div class="actions"><button class="mini" onclick="removePlan('${p.id}')">×</button></div></div>`).join('')||'<div class="muted">Nothing planned yet.</div>'}
-function icon(s){return {planned:'○',done:'✓',partial:'~',skipped:'×',moved:'→'}[s]||'○'}
+function renderPlans(id,plans){
+  document.getElementById(id).innerHTML=plans.map(p=>
+    `<div class="plan"><button class="status ${p.status}" onclick="cycle('${p.id}','${p.status}')" aria-label="status ${p.status}">${icon(p.status)}</button>`+
+    `<div class="ptext"><div class="pname ${p.status==='skipped'?'strike':''}" onclick="edit('${p.id}')">${escapeHtml(p.plan)}</div><div class="pstat">${p.status}</div></div>`+
+    `<button class="del" onclick="removePlan('${p.id}')" aria-label="delete">×</button></div>`
+  ).join('')||'<div class="empty">Nothing planned yet.</div>';
+}
+function icon(s){return {planned:'○',done:'✓',partial:'◐',skipped:'–',moved:'→'}[s]||'○'}
 function cycle(id,s){const next={planned:'done',done:'partial',partial:'skipped',skipped:'moved',moved:'planned'}[s];google.script.run.withSuccessHandler(render).withFailureHandler(err).setPlanStatus(id,next)}
-function add(which){const el=document.getElementById(which+'Input'),v=el.value.trim();if(!v)return;google.script.run.withSuccessHandler(s=>{el.value='';render(s)}).withFailureHandler(err).addPlan(which==='today'?state.today:state.tomorrow,v)}
+function add(which){const el=document.getElementById(which+'Input'),v=el.value.trim();if(!v)return;google.script.run.withSuccessHandler(s=>{el.value='';render(s);el.focus()}).withFailureHandler(err).addPlan(which==='today'?state.today:state.tomorrow,v)}
 function edit(id){const p=(state.todayPlans.concat(state.tomorrowPlans)).find(x=>x.id===id);if(!p)return;const v=prompt('Edit plan',p.plan);if(v===null)return;google.script.run.withSuccessHandler(render).withFailureHandler(err).updatePlan(id,v)}
 function removePlan(id){if(!confirm('Remove this plan?'))return;google.script.run.withSuccessHandler(render).withFailureHandler(err).deletePlan(id)}
-function saveReflection(){google.script.run.withSuccessHandler(()=>flash('Reflection saved.')).withFailureHandler(err).saveReflection(state.today,document.getElementById('reflection').value)}
+function saveReflection(){google.script.run.withSuccessHandler(()=>toast('Reflection saved.')).withFailureHandler(err).saveReflection(state.today,document.getElementById('reflection').value)}
 
-function toggleReview(){const el=document.getElementById('review');el.classList.toggle('hidden');if(!el.classList.contains('hidden'))loadReview()}
+function toggleReview(){const el=document.getElementById('review');el.classList.toggle('hidden');if(!el.classList.contains('hidden')){loadReview();el.scrollIntoView({behavior:'smooth',block:'start'})}}
 function loadReview(){
   google.script.run.withSuccessHandler(renderWeek).withFailureHandler(err).getWeeklySummary(null);
   google.script.run.withSuccessHandler(renderMonth).withFailureHandler(err).getMonthlySummary(null);
@@ -41,11 +212,13 @@ function loadReview(){
 function renderWeek(w){week=w.week;document.getElementById('weekRange').textContent=pretty(w.start)+' – '+pretty(w.end);document.getElementById('weekCounts').innerHTML=counts(w.counts);document.getElementById('weekReflection').value=w.reflection||''}
 function renderMonth(m){month=m.month;const d=new Date(m.month+'-01T00:00:00');document.getElementById('monthLabel').textContent=d.toLocaleDateString(undefined,{month:'long',year:'numeric'});document.getElementById('monthCounts').innerHTML=counts(m.counts);document.getElementById('monthReflection').value=m.reflection||''}
 function counts(c){return[['total','Plans'],['done','Done'],['partial','Partial'],['skipped','Skipped'],['moved','Moved']].map(([k,l])=>`<div><b>${c[k]||0}</b><span>${l}</span></div>`).join('')}
-function saveWeekly(){google.script.run.withSuccessHandler(()=>flash('Weekly saved.')).withFailureHandler(err).saveWeeklyReflection(week,document.getElementById('weekReflection').value)}
-function saveMonthly(){google.script.run.withSuccessHandler(()=>flash('Monthly saved.')).withFailureHandler(err).saveMonthlyReflection(month,document.getElementById('monthReflection').value)}
-function flash(m){const s=document.querySelector('.footer .sub');const o=s.textContent;s.textContent=m;setTimeout(()=>s.textContent=o,1800)}
+function saveWeekly(){google.script.run.withSuccessHandler(()=>toast('Weekly saved.')).withFailureHandler(err).saveWeeklyReflection(week,document.getElementById('weekReflection').value)}
+function saveMonthly(){google.script.run.withSuccessHandler(()=>toast('Monthly saved.')).withFailureHandler(err).saveMonthlyReflection(month,document.getElementById('monthReflection').value)}
 
-function exportData(){google.script.run.withSuccessHandler(data=>{download('PlanOS_Plans.csv',data.plans);download('PlanOS_Reflections.csv',data.reflections);download('PlanOS_WeeklyReviews.csv',data.weekly);download('PlanOS_MonthlyReviews.csv',data.monthly)}).withFailureHandler(err).exportCsv()}
+let toastT;
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1900)}
+
+function exportData(){google.script.run.withSuccessHandler(data=>{download('PlanOS_Plans.csv',data.plans);download('PlanOS_Reflections.csv',data.reflections);download('PlanOS_WeeklyReviews.csv',data.weekly);download('PlanOS_MonthlyReviews.csv',data.monthly);toast('CSV exported.')}).withFailureHandler(err).exportCsv()}
 function download(name,text){const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(text);a.download=name;a.click()}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 load();
