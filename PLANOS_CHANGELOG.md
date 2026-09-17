@@ -3,6 +3,30 @@
 Factual record of implementation changes. "Tested" means actually executed. Static/
 syntax checks are recorded separately and are not "tested".
 
+## 2026-09-17 (deployment prep)
+
+### Added
+- `PLANOS_ACCEPTANCE_TEST.md` — PM checklist for validating the deployed app.
+
+### Changed
+- `README.md` — full non-developer deployment walkthrough (manifest visibility, file
+  creation, `setup()`, authorization, Web App deploy with recommended "Only myself"
+  access, timezone note, re-deploy note) plus an explicit validation-status section.
+
+### Audit (no code changes needed)
+- Deployment-readiness audit: PASS. All frontend `google.script.run` calls map to
+  existing backend functions with matching arguments (`getBootstrap`, `addPlan`,
+  `updatePlan`, `setPlanStatus`, `deletePlan`, `saveReflection`, `getWeeklySummary`,
+  `saveWeeklyReflection`, `getMonthlySummary`, `saveMonthlyReflection`, `exportCsv`).
+  Statuses consistent; week = Monday; month = `yyyy-MM`; CSV headers match schema;
+  `setup()` verified non-destructive; no malformed failure handlers; no stale names.
+
+### Noted (not changed — deployment consideration)
+- `appsscript.json` `webapp.access` default is `ANYONE_WITH_GOOGLE_ACCOUNT`. For
+  personal use the PM should choose "Only myself" in the deploy dialog (documented in
+  README). The dialog choice governs the actual deployment; manifest left unchanged to
+  avoid scope creep.
+
 ## 2026-09-17
 
 ### Added
