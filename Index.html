@@ -1,0 +1,52 @@
+<!doctype html>
+<html><head><base target="_top"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+:root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#161616;background:#f6f6f2}*{box-sizing:border-box}body{margin:0}.app{max-width:680px;margin:auto;padding:28px 18px 48px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}.brand{font-weight:800;letter-spacing:-.04em;font-size:22px}.sub{font-size:12px;color:#777}.section{margin:28px 0}.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#777;margin-bottom:9px}.date{font-size:14px;color:#555;margin-bottom:14px}.plan{display:grid;grid-template-columns:34px 1fr 34px;align-items:center;gap:8px;padding:13px 0;border-bottom:1px solid #ddd}.plantext{font-size:16px;line-height:1.35;cursor:pointer}.status{width:30px;height:30px;border:1px solid #bbb;border-radius:50%;background:transparent;cursor:pointer}.status.done{background:#171717;color:white}.status.partial{background:#ddd}.status.skipped{opacity:.5}.status.moved{border-style:dashed}.actions{display:flex;gap:7px}.mini{border:0;background:none;color:#888;cursor:pointer;font-size:12px}.add{display:flex;gap:8px;margin-top:13px}.input,.reflection{width:100%;border:1px solid #ccc;border-radius:9px;background:white;padding:11px 12px;font:inherit}.btn{border:1px solid #bbb;background:white;border-radius:9px;padding:10px 14px;cursor:pointer}.btn.primary{background:#171717;color:#fff;border-color:#171717}.tomorrow{padding-top:5px}.reflection{min-height:130px;resize:vertical}.muted{color:#888;font-size:13px}.footer{margin-top:36px;display:flex;justify-content:space-between;align-items:center}.hidden{display:none}.strike{text-decoration:line-through;color:#888}.counts{display:flex;flex-wrap:wrap;gap:14px;margin:6px 0 14px}.counts b{display:block;font-size:20px;font-weight:700;letter-spacing:-.02em}.counts span{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#777}
+</style></head><body><main class="app"><div class="top"><div class="brand">PlanOS</div><div class="sub">Plan · Execute · Reflect</div></div>
+<section class="section"><div class="eyebrow">Today</div><div id="todayDate" class="date"></div><div id="todayPlans"></div><div class="add"><input id="todayInput" class="input" placeholder="Add a plan…"><button class="btn primary" onclick="add('today')">Add</button></div></section>
+<section class="section tomorrow"><div class="eyebrow">Tomorrow</div><div id="tomorrowDate" class="date"></div><div id="tomorrowPlans"></div><div class="add"><input id="tomorrowInput" class="input" placeholder="Prepare tomorrow…"><button class="btn primary" onclick="add('tomorrow')">Add</button></div></section>
+<section class="section"><div class="eyebrow">Close today</div><p class="muted">What happened? What worked? What didn't? What should change tomorrow?</p><textarea id="reflection" class="reflection" placeholder="Write your reflection…"></textarea><div style="margin-top:9px"><button class="btn primary" onclick="saveReflection()">Save reflection</button></div></section>
+
+<section id="review" class="section hidden">
+  <div class="eyebrow">This week</div><div id="weekRange" class="date"></div>
+  <div id="weekCounts" class="counts"></div>
+  <textarea id="weekReflection" class="reflection" placeholder="Weekly reflection — what worked, what was unrealistic, what changes next week?"></textarea>
+  <div style="margin-top:9px"><button class="btn primary" onclick="saveWeekly()">Save weekly</button></div>
+
+  <div class="eyebrow" style="margin-top:28px">This month</div><div id="monthLabel" class="date"></div>
+  <div id="monthCounts" class="counts"></div>
+  <textarea id="monthReflection" class="reflection" placeholder="Monthly reflection — patterns, recurring problems, recurring successes?"></textarea>
+  <div style="margin-top:9px"><button class="btn primary" onclick="saveMonthly()">Save monthly</button></div>
+</section>
+
+<div class="footer"><div style="display:flex;gap:14px"><button class="mini" onclick="toggleReview()">Review</button><button class="mini" onclick="exportData()">Export CSV</button></div><span class="sub">Keep it short. Get back to life.</span></div></main>
+<script>
+let state, week, month;
+function load(){google.script.run.withSuccessHandler(render).withFailureHandler(err).getBootstrap()}
+function err(e){alert(e&&e.message?e.message:String(e))}
+function render(s){state=s;document.getElementById('todayDate').textContent=pretty(s.today);document.getElementById('tomorrowDate').textContent=pretty(s.tomorrow);document.getElementById('reflection').value=s.reflection?.reflection||'';renderPlans('todayPlans',s.todayPlans);renderPlans('tomorrowPlans',s.tomorrowPlans)}
+function pretty(k){const d=new Date(k+'T00:00:00');return d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}
+function renderPlans(id,plans){document.getElementById(id).innerHTML=plans.map(p=>`<div class="plan"><button class="status ${p.status}" onclick="cycle('${p.id}','${p.status}')">${icon(p.status)}</button><div class="plantext ${p.status==='skipped'?'strike':''}" onclick="edit('${p.id}')">${escapeHtml(p.plan)}</div><div class="actions"><button class="mini" onclick="removePlan('${p.id}')">×</button></div></div>`).join('')||'<div class="muted">Nothing planned yet.</div>'}
+function icon(s){return {planned:'○',done:'✓',partial:'~',skipped:'×',moved:'→'}[s]||'○'}
+function cycle(id,s){const next={planned:'done',done:'partial',partial:'skipped',skipped:'moved',moved:'planned'}[s];google.script.run.withSuccessHandler(render).withFailureHandler(err).setPlanStatus(id,next)}
+function add(which){const el=document.getElementById(which+'Input'),v=el.value.trim();if(!v)return;google.script.run.withSuccessHandler(s=>{el.value='';render(s)}).withFailureHandler(err).addPlan(which==='today'?state.today:state.tomorrow,v)}
+function edit(id){const p=(state.todayPlans.concat(state.tomorrowPlans)).find(x=>x.id===id);if(!p)return;const v=prompt('Edit plan',p.plan);if(v===null)return;google.script.run.withSuccessHandler(render).withFailureHandler(err).updatePlan(id,v)}
+function removePlan(id){if(!confirm('Remove this plan?'))return;google.script.run.withSuccessHandler(render).withFailureHandler(err).deletePlan(id)}
+function saveReflection(){google.script.run.withSuccessHandler(()=>flash('Reflection saved.')).withFailureHandler(err).saveReflection(state.today,document.getElementById('reflection').value)}
+
+function toggleReview(){const el=document.getElementById('review');el.classList.toggle('hidden');if(!el.classList.contains('hidden'))loadReview()}
+function loadReview(){
+  google.script.run.withSuccessHandler(renderWeek).withFailureHandler(err).getWeeklySummary(null);
+  google.script.run.withSuccessHandler(renderMonth).withFailureHandler(err).getMonthlySummary(null);
+}
+function renderWeek(w){week=w.week;document.getElementById('weekRange').textContent=pretty(w.start)+' – '+pretty(w.end);document.getElementById('weekCounts').innerHTML=counts(w.counts);document.getElementById('weekReflection').value=w.reflection||''}
+function renderMonth(m){month=m.month;const d=new Date(m.month+'-01T00:00:00');document.getElementById('monthLabel').textContent=d.toLocaleDateString(undefined,{month:'long',year:'numeric'});document.getElementById('monthCounts').innerHTML=counts(m.counts);document.getElementById('monthReflection').value=m.reflection||''}
+function counts(c){return[['total','Plans'],['done','Done'],['partial','Partial'],['skipped','Skipped'],['moved','Moved']].map(([k,l])=>`<div><b>${c[k]||0}</b><span>${l}</span></div>`).join('')}
+function saveWeekly(){google.script.run.withSuccessHandler(()=>flash('Weekly saved.')).withFailureHandler(err).saveWeeklyReflection(week,document.getElementById('weekReflection').value)}
+function saveMonthly(){google.script.run.withSuccessHandler(()=>flash('Monthly saved.')).withFailureHandler(err).saveMonthlyReflection(month,document.getElementById('monthReflection').value)}
+function flash(m){const s=document.querySelector('.footer .sub');const o=s.textContent;s.textContent=m;setTimeout(()=>s.textContent=o,1800)}
+
+function exportData(){google.script.run.withSuccessHandler(data=>{download('PlanOS_Plans.csv',data.plans);download('PlanOS_Reflections.csv',data.reflections);download('PlanOS_WeeklyReviews.csv',data.weekly);download('PlanOS_MonthlyReviews.csv',data.monthly)}).withFailureHandler(err).exportCsv()}
+function download(name,text){const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(text);a.download=name;a.click()}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+load();
+</script></body></html>
