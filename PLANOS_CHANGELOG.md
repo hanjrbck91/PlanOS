@@ -1,5 +1,32 @@
 # PlanOS Changelog
 
+## 2026-09-17 (collapsible reflection & review history)
+
+### Added
+- Second level of folding: inside Reflection and inside Review (weekly + monthly), each
+  historical note is now an individual, **collapsed-by-default** `<details>` disclosure.
+  Collapsed shows `date · time` + a one-line preview (whitespace-collapsed, ~72 chars +
+  ellipsis); expanded shows the full original text. Opening one note does not open the
+  others. History visually recedes (muted, existing divider style).
+- Timestamps on today's notes now show `date · time` (was time-only) for consistency.
+
+### Unchanged (by design)
+- Backend (`Code.gs`) not touched. Reflections/WeeklyReviews/MonthlyReviews stay
+  append-only; the composer creates a new row and never loads/overwrites a prior note.
+- Disclosure is 100% client-side (native `<details>`): opening/closing/previewing a note
+  makes **zero** `google.script.run` calls. No new data-fetch layer, no schema change.
+- Today's active plans remain flat and immediately visible (not collapsible).
+- Top-level default state preserved: Today open; Tomorrow/Reflection/Review/Export
+  closed. Disclosure state is UI-only, never persisted to Sheets.
+
+### Tests
+- Static: `Code.gs` `node --check` (unchanged); `Index.html` inline script parses.
+- Local (in-app browser, stubbed backend, iPhone 15 / 393px): 3 reflection entries all
+  render collapsed, newest first, previews truncated, opening the first leaves the others
+  closed, full text intact; 2 weekly entries render collapsed with previews and correct
+  counts; no horizontal overflow. Disclosure verified to fire no RPC.
+
+
 ## 2026-09-17 (collapsible sections + lighter interactions)
 
 ### Collapsible information architecture

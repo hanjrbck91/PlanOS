@@ -136,6 +136,9 @@ and the summaries return a `reflections` array (newest first). Reflections are
 observations and are never overwritten; plans are intentions and remain editable in
 place. Because Google Sheets coerces appended date strings into Date cells, all
 date/week/month matching goes through `dayKey_()`/`monthKeyOf_()` (see Decision 006).
+Historical reflection/review notes are displayed as individually collapsible,
+client-side disclosures (collapsed by default, `date · time` + preview → full text on
+tap); expanding a note makes no server call and the full original text is preserved.
 
 ## Current functionality (verified present)
 

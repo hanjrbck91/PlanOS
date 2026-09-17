@@ -106,14 +106,21 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-text-
 .counts span{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted2)}
 .rev-block .rarea{border-color:var(--line2);background:#00000026}
 
-/* reflection / review history */
+/* reflection / review history (each note individually collapsible, client-side) */
 .notes{margin-top:16px}
-.notes-h{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;opacity:.6;margin-bottom:8px}
-.note{padding:10px 0;border-top:1px solid #ffffff1f}
-.reflect .note{border-color:#ffffff2b}
-.note:first-of-type{border-top:0}
-.note-t{font-family:var(--mono);font-size:10px;letter-spacing:.08em;opacity:.6;margin-bottom:3px}
-.note-b{font-size:14.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.notes-h{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;opacity:.6;margin-bottom:6px}
+details.note{border-top:1px solid #ffffff1f;padding:0}
+.reflect details.note{border-color:#ffffff2b}
+details.note:first-of-type{border-top:0}
+details.note>summary{list-style:none;cursor:pointer;padding:10px 0;-webkit-tap-highlight-color:transparent}
+details.note>summary::-webkit-details-marker{display:none}
+.note-hd{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.note-t{font-family:var(--mono);font-size:10px;letter-spacing:.08em;opacity:.6}
+.note .chev{font-size:12px;opacity:.55;transition:transform .15s;line-height:1}
+details.note[open] .note .chev,details.note[open] .chev{transform:rotate(90deg)}
+.note-prev{font-size:14px;line-height:1.4;opacity:.65;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+details.note[open] .note-prev{display:none}
+.note-full{font-size:14.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word;padding:2px 0 10px}
 
 /* sync indicator */
 .sync{display:none;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--olive);margin-top:6px}
@@ -250,11 +257,17 @@ function icon(s){return {planned:'○',done:'✓',partial:'◐',skipped:'–',mo
 function renderNotes(id, arr, mode, heading){
   const el=document.getElementById(id); if(!el) return;
   if(!arr||!arr.length){el.innerHTML='';return}
+  // Each historical note is a native <details>, collapsed by default. Purely client-side —
+  // opening/closing never calls the server. The full original text is always preserved.
   el.innerHTML=`<div class="notes-h">${heading}</div>`+arr.map(r=>
-    `<div class="note"><div class="note-t">${stamp(r.created_at,mode)}</div><div class="note-b">${escapeHtml(r.reflection)}</div></div>`
+    `<details class="note"><summary>`+
+    `<div class="note-hd"><span class="note-t">${stamp(r.created_at,mode)}</span><span class="chev">▸</span></div>`+
+    `<div class="note-prev">${escapeHtml(preview(r.reflection))}</div>`+
+    `</summary><div class="note-full">${escapeHtml(r.reflection)}</div></details>`
   ).join('');
 }
-function stamp(iso,mode){const d=new Date(iso);if(isNaN(d.getTime()))return '';const t=d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});return mode==='time'?t:d.toLocaleDateString(undefined,{day:'numeric',month:'short'})+' · '+t}
+function preview(t){const s=String(t||'').replace(/\s+/g,' ').trim();return s.length>72?s.slice(0,72)+'…':s}
+function stamp(iso){const d=new Date(iso);if(isNaN(d.getTime()))return '';return d.toLocaleDateString(undefined,{day:'numeric',month:'short'})+' · '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}
 
 function listOf(id){return state.todayPlans.some(x=>x.id===id)?'today':'tomorrow'}
 function findPlan(id){return state.todayPlans.find(x=>x.id===id)||state.tomorrowPlans.find(x=>x.id===id)}
