@@ -1,5 +1,55 @@
 # PlanOS Changelog
 
+## 2026-09-17 (blocking live bug: frontend not updating after add)
+
+### Observed (live, deployed V0)
+- After adding a Today plan, the row was written to the `Plans` sheet but the UI still
+  showed `0/0` / "Nothing planned yet"; users resubmitted and produced duplicate rows.
+  Duplicate rows also appeared in `Reflections`. CSV export and writes worked.
+
+### Root cause
+- Google Sheets auto-coerces an appended `'yyyy-MM-dd'` string into a real **Date**
+  cell. `readRows_` serializes any Date via `toISOString()` (UTC), so the `date` field
+  comes back as a full ISO timestamp, never equal to the `'yyyy-MM-dd'` key. Every
+  **exact-match** date compare failed:
+  - `getBootstrap` today/tomorrow (and reflection) filters → always empty → `0/0`,
+    nothing rendered; users retried → duplicate `Plans` rows.
+  - `saveReflection` dedup lookup → never matched → duplicate `Reflections` rows.
+  - `saveReview_` / weekly / monthly key matches had the same fragility.
+- The frontend, `google.script.run` chain, success callbacks and `render()` were all
+  correct — proven by the initial load rendering the styled UI (empty list, not an
+  error). This was a backend date-matching bug, not a callback bug.
+
+### Fixed
+- `Code.gs`: added `dayKey_(v)` (normalizes any stored date/week value to a
+  `'yyyy-MM-dd'` key in the script timezone; passes through values already in that form)
+  and `monthKeyOf_(v)`. Replaced all exact date/week/month comparisons in
+  `getBootstrap`, `saveReflection`, `getWeeklySummary`, `getMonthlySummary`, and
+  `saveReview_` (via a normalizer arg) with these helpers. Also fixes a latent
+  timezone-boundary error in the monthly filter (previously `String(r.date).slice(0,7)`
+  on a UTC timestamp).
+- No frontend change. No workaround UX (no optimistic updates, no reload/polling).
+
+### Deployment implication
+- `Code.gs` changed → a **new Apps Script deployment version is required** for the fix
+  to reach the live web app (Manage deployments → edit → New version). `Index.html`
+  unchanged.
+
+### Data impact
+- No existing data modified. Pre-existing duplicate test rows were left in place (real
+  user data); the PM can remove them manually. After redeploy those existing same-day
+  rows will now render.
+
+### Tests
+- Static: `Code.gs` passes `node --check`.
+- Local: simulated `readRows_` output (Sheets Date-coercion → UTC ISO) and ran the new
+  filter logic — today/tomorrow now populate and separate correctly; week/month keys
+  recover the intended local day; plain `'yyyy-MM-dd'` values pass through unchanged.
+- Live: **not performed** — no access to the PM's deployed app / Google account from
+  this environment. Root cause established from code + the provided Sheet screenshots
+  (same-day rows with `0/0`; duplicate rows in Plans and Reflections).
+
+
 ## 2026-09-17 (mobile-first UI redesign)
 
 ### Changed

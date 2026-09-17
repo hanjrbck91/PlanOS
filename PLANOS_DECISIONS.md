@@ -82,3 +82,29 @@ capture most of the plan-vs-reality signal.
 
 Revisit when:
 Real usage shows the historical wording of plans is valuable to preserve.
+
+## Decision 006 — Normalize dates on read; never rely on exact string date matches
+
+Status: Accepted
+
+Decision:
+Treat stored `date`/`week`/`month` values as untrusted formats and normalize them with
+`dayKey_()` / `monthKeyOf_()` before comparing. Do not compare a stored date directly to
+a `'yyyy-MM-dd'` key with `===`.
+
+Reason:
+Google Sheets auto-coerces appended date-like strings into Date cells, and `readRows_`
+serializes Dates via `toISOString()` (UTC). A stored date therefore reads back as a full
+ISO timestamp, so exact string matches silently fail — the live root cause behind Today
+showing `0/0` and duplicate rows. Normalizing on read is a small, non-destructive fix
+that works whether a cell is a coerced Date or a plain `'yyyy-MM-dd'` string, and it is
+timezone-correct (formats in the script timezone).
+
+Alternatives considered:
+Forcing the date column to plain-text format (only helps new sheets; leaves existing
+data mismatched); changing `readRows_` to blanket-format all Dates (would corrupt
+`created_at`/`updated_at` timestamps in CSV export).
+
+Revisit when:
+The storage layer changes away from Google Sheets (a real DB would remove the coercion),
+at which point the normalization can be simplified.

@@ -29,13 +29,13 @@ function getBootstrap() {
   setup();
   const today = dateKey_(new Date());
   const tomorrow = dateKey_(addDays_(new Date(), 1));
-  const plans = readRows_(SHEETS.PLANS).filter(r => r.date === today || r.date === tomorrow);
-  const reflections = readRows_(SHEETS.REFLECTIONS).filter(r => r.date === today);
+  const plans = readRows_(SHEETS.PLANS).filter(r => dayKey_(r.date) === today || dayKey_(r.date) === tomorrow);
+  const reflections = readRows_(SHEETS.REFLECTIONS).filter(r => dayKey_(r.date) === today);
   return {
     today,
     tomorrow,
-    todayPlans: plans.filter(r => r.date === today),
-    tomorrowPlans: plans.filter(r => r.date === tomorrow),
+    todayPlans: plans.filter(r => dayKey_(r.date) === today),
+    tomorrowPlans: plans.filter(r => dayKey_(r.date) === tomorrow),
     reflection: reflections[0] || null
   };
 }
@@ -67,7 +67,7 @@ function deletePlan(id) {
 
 function saveReflection(date, reflection) {
   const text = String(reflection || '').trim();
-  const existing = readRows_(SHEETS.REFLECTIONS).find(r => r.date === date);
+  const existing = readRows_(SHEETS.REFLECTIONS).find(r => dayKey_(r.date) === date);
   const now = new Date().toISOString();
   if (existing) {
     updateRow_(SHEETS.REFLECTIONS, existing.id, {reflection: text, updated_at: now});
@@ -82,8 +82,8 @@ function getWeeklySummary(week) {
   setup();
   const start = week ? week : weekStart_(new Date());
   const end = dateKey_(addDays_(new Date(start + 'T00:00:00'), 6));
-  const plans = readRows_(SHEETS.PLANS).filter(r => r.date >= start && r.date <= end);
-  const review = readRows_(SHEETS.WEEKLY).find(r => r.week === start);
+  const plans = readRows_(SHEETS.PLANS).filter(r => { const k = dayKey_(r.date); return k >= start && k <= end; });
+  const review = readRows_(SHEETS.WEEKLY).find(r => dayKey_(r.week) === start);
   return {
     week: start,
     start, end,
@@ -93,15 +93,15 @@ function getWeeklySummary(week) {
 }
 
 function saveWeeklyReflection(week, reflection) {
-  return saveReview_(SHEETS.WEEKLY, 'week', week, reflection);
+  return saveReview_(SHEETS.WEEKLY, 'week', week, reflection, dayKey_);
 }
 
 // --- Monthly review ---
 function getMonthlySummary(month) {
   setup();
   const key = month ? month : monthKey_(new Date());
-  const plans = readRows_(SHEETS.PLANS).filter(r => String(r.date).slice(0,7) === key);
-  const review = readRows_(SHEETS.MONTHLY).find(r => r.month === key);
+  const plans = readRows_(SHEETS.PLANS).filter(r => monthKeyOf_(r.date) === key);
+  const review = readRows_(SHEETS.MONTHLY).find(r => monthKeyOf_(r.month) === key);
   return {
     month: key,
     counts: countStatuses_(plans),
@@ -110,7 +110,7 @@ function getMonthlySummary(month) {
 }
 
 function saveMonthlyReflection(month, reflection) {
-  return saveReview_(SHEETS.MONTHLY, 'month', month, reflection);
+  return saveReview_(SHEETS.MONTHLY, 'month', month, reflection, monthKeyOf_);
 }
 
 function exportCsv() {
@@ -130,10 +130,11 @@ function countStatuses_(plans) {
   return c;
 }
 
-function saveReview_(sheetName, keyCol, keyVal, reflection) {
+function saveReview_(sheetName, keyCol, keyVal, reflection, norm) {
   setup();
   const text = String(reflection || '').trim();
-  const existing = readRows_(sheetName).find(r => r[keyCol] === keyVal);
+  const key = norm ? norm : (v => v);
+  const existing = readRows_(sheetName).find(r => key(r[keyCol]) === keyVal);
   const now = new Date().toISOString();
   if (existing) {
     updateRow_(sheetName, existing.id, {reflection: text, updated_at: now});
@@ -168,6 +169,18 @@ function deleteRow_(name,id) {
   for(let r=1;r<values.length;r++) if(String(values[r][idCol])===String(id)){sh.deleteRow(r+1);return;}
 }
 function dateKey_(d){return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');}
+// Normalize a stored date/week value to a 'yyyy-MM-dd' key in the script timezone.
+// Google Sheets coerces appended date strings into Date cells, which readRows_ then
+// serializes via toISOString() (UTC). This recovers the intended local day, and passes
+// through values already in 'yyyy-MM-dd' form unchanged.
+function dayKey_(v){
+  if (v instanceof Date) return dateKey_(v);
+  var s = String(v);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  var d = new Date(s);
+  return isNaN(d.getTime()) ? s : dateKey_(d);
+}
+function monthKeyOf_(v){ return dayKey_(v).slice(0,7); }
 function monthKey_(d){return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM');}
 function weekStart_(d){const x=new Date(d);const day=(x.getDay()+6)%7;x.setDate(x.getDate()-day);return dateKey_(x);} // Monday
 function addDays_(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
