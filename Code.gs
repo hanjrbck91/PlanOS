@@ -20,22 +20,48 @@ function doGet() {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+const READY_KEY = 'planos_ready_2'; // bumped so setup()/migration re-runs once after deploy
+
 function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  ensureSheet_(ss, SHEETS.PLANS, ['id','date','plan','status','created_at','updated_at']);
+  ensureSheet_(ss, SHEETS.PLANS, ['id','date','plan','status','position','created_at','updated_at']);
   ensureSheet_(ss, SHEETS.REFLECTIONS, ['id','date','reflection','created_at','updated_at']);
   ensureSheet_(ss, SHEETS.WEEKLY, ['id','week','reflection','created_at','updated_at']);
   ensureSheet_(ss, SHEETS.MONTHLY, ['id','month','reflection','created_at','updated_at']);
   ensureSheet_(ss, SHEETS.SETTINGS, ['key','value']);
-  CacheService.getScriptCache().put('planos_ready', '1', 21600);
+  ensurePositionColumn_(); // safe, non-destructive migration for pre-existing Plans sheets
+  CacheService.getScriptCache().put(READY_KEY, '1', 21600);
   return 'PlanOS setup complete';
 }
 
 // Cheap readiness guard for hot paths: run full setup() at most once per cache window
 // (6h) instead of on every request. setup() itself remains safe to run explicitly.
 function ensureReady_() {
-  if (CacheService.getScriptCache().get('planos_ready')) return;
+  if (CacheService.getScriptCache().get(READY_KEY)) return;
   setup();
+}
+
+// Add a 'position' column to an existing Plans sheet if missing, and backfill positions
+// per date (ordered by created_at) so historical rows keep a stable order. Never deletes
+// or rewrites plan content.
+function ensurePositionColumn_() {
+  const sh = sheet_(SHEETS.PLANS);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  if (headers.indexOf('position') >= 0) return;
+  const posCol = headers.length; // 0-based index of the new last column
+  sh.getRange(1, posCol + 1).setValue('position');
+  if (values.length < 2) return;
+  const dateCol = headers.indexOf('date'), createdCol = headers.indexOf('created_at');
+  const byDate = {};
+  for (let r = 1; r < values.length; r++) {
+    const d = dayKey_(values[r][dateCol] instanceof Date ? values[r][dateCol].toISOString() : String(values[r][dateCol]));
+    (byDate[d] = byDate[d] || []).push({r: r, created: String(values[r][createdCol])});
+  }
+  Object.keys(byDate).forEach(function(d) {
+    byDate[d].sort(function(a, b){ return a.created.localeCompare(b.created); });
+    byDate[d].forEach(function(o, i){ sh.getRange(o.r + 1, posCol + 1).setValue(i); });
+  });
 }
 
 function getBootstrap() {
@@ -49,22 +75,64 @@ function getBootstrap() {
   return {
     today,
     tomorrow,
-    todayPlans: plans.filter(r => dayKey_(r.date) === today),
-    tomorrowPlans: plans.filter(r => dayKey_(r.date) === tomorrow),
+    todayPlans: plans.filter(r => dayKey_(r.date) === today).sort(byPosition_),
+    tomorrowPlans: plans.filter(r => dayKey_(r.date) === tomorrow).sort(byPosition_),
     reflections
   };
 }
 
+// Order plans by numeric position, falling back to created_at when positions tie/missing.
+function byPosition_(a, b) {
+  const pa = Number(a.position), pb = Number(b.position);
+  const va = isNaN(pa) ? Infinity : pa, vb = isNaN(pb) ? Infinity : pb;
+  if (va !== vb) return va - vb;
+  return String(a.created_at).localeCompare(String(b.created_at));
+}
+
 // Mutations return only the affected record so the client updates local state without a
 // full re-read/re-render. The Sheet stays the source of truth (server-confirmed values).
-function addPlan(date, plan) {
+function addPlan(date, plan, position) {
   ensureReady_();
   if (!plan || !String(plan).trim()) throw new Error('Plan cannot be empty.');
   const now = new Date().toISOString();
   const id = Utilities.getUuid();
   const text = String(plan).trim();
-  sheet_(SHEETS.PLANS).appendRow([id, date, text, 'planned', now, now]);
-  return {id, date, plan: text, status: 'planned', created_at: now, updated_at: now};
+  const pos = (position === undefined || position === null || position === '') ? 0 : Number(position);
+  // Column order must match the Plans header: id,date,plan,status,position,created_at,updated_at
+  sheet_(SHEETS.PLANS).appendRow([id, date, text, 'planned', pos, now, now]);
+  return {id, date, plan: text, status: 'planned', position: pos, created_at: now, updated_at: now};
+}
+
+// Persist a new ordering for a set of plan ids: position = index in the array.
+// One sheet read, then targeted cell writes. Does not touch plan content.
+function reorderPlans(ids) {
+  ensureReady_();
+  if (!ids || !ids.length) return {ok: true};
+  const sh = sheet_(SHEETS.PLANS);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  const idCol = headers.indexOf('id'), posCol = headers.indexOf('position'), upCol = headers.indexOf('updated_at');
+  const rowById = {};
+  for (let r = 1; r < values.length; r++) rowById[String(values[r][idCol])] = r;
+  const now = new Date().toISOString();
+  for (let i = 0; i < ids.length; i++) {
+    const r = rowById[String(ids[i])];
+    if (r) {
+      sh.getRange(r + 1, posCol + 1).setValue(i);
+      if (upCol >= 0) sh.getRange(r + 1, upCol + 1).setValue(now);
+    }
+  }
+  return {ok: true};
+}
+
+// Move a plan to another date (and position within that day's list).
+function movePlan(id, date, position) {
+  ensureReady_();
+  const now = new Date().toISOString();
+  const patch = {date: date, updated_at: now};
+  if (position !== undefined && position !== null && position !== '') patch.position = Number(position);
+  updateRow_(SHEETS.PLANS, id, patch);
+  return {id, date, position: patch.position, updated_at: now};
 }
 
 function updatePlan(id, plan) {
@@ -142,7 +210,7 @@ function saveMonthlyReflection(month, reflection) {
 function exportCsv() {
   ensureReady_();
   return {
-    plans: csv_(readRows_(SHEETS.PLANS), ['id','date','plan','status','created_at','updated_at']),
+    plans: csv_(readRows_(SHEETS.PLANS), ['id','date','plan','status','position','created_at','updated_at']),
     reflections: csv_(readRows_(SHEETS.REFLECTIONS), ['id','date','reflection','created_at','updated_at']),
     weekly: csv_(readRows_(SHEETS.WEEKLY), ['id','week','reflection','created_at','updated_at']),
     monthly: csv_(readRows_(SHEETS.MONTHLY), ['id','month','reflection','created_at','updated_at'])

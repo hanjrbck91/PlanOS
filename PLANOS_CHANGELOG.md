@@ -1,5 +1,61 @@
 # PlanOS Changelog
 
+## 2026-09-18 (M1 — Today/Tomorrow instant interaction)
+
+### Interaction model: optimistic UI + background persistence
+- Root cause of latency: mutations updated the UI only inside the server callback, so
+  every tap waited a full Apps Script round-trip. Now add/status/edit/delete/move/reorder
+  update local state and re-render **immediately**; the server call runs in the
+  background (`persist()`), showing the existing "Syncing…" indicator, and reverts the
+  local change with a toast if the write fails. No `getBootstrap` after mutations.
+- Add uses a temporary client id; on the server ack it swaps in the real id and
+  reconciles any status/edit/move made during the pending window. If the row was deleted
+  while pending, the created server row is deleted. Add failure restores the typed text.
+- Stale-response safety: mutation responses are acks the client ignores (except the
+  add temp→real id swap), so a slow/old response can never overwrite newer UI state.
+- Status tap cycle is planned→done→partial→skipped→planned (the `moved` status is no
+  longer reached by tapping; it remains valid in data/rendering).
+
+### Reorder (new)
+- Added a `position` field to Plans (last column). New `reorderPlans(ids)` sets
+  `position = index`; `getBootstrap` sorts each day by `position` then `created_at`.
+- Touch/pointer drag via a dedicated left handle (`⋮`), separate from the status button
+  so tapping status never starts a drag; move/up listeners are on `document` for
+  reliable commit on iOS and desktop. Works with mouse too.
+
+### Move to another day (new)
+- A per-row `⇄` control moves a plan between Today and Tomorrow: removed from the source
+  list and appended to the destination immediately, counts update, then `movePlan(id,
+  date, position)` persists in the background.
+
+### Data model / migration
+- Plans gains `position` (existing four other sheets unchanged). `setup()` now also runs
+  `ensurePositionColumn_()`, a safe non-destructive migration: adds the column if absent
+  and backfills positions per date by `created_at`. The readiness cache key was bumped
+  (`planos_ready_2`) so this runs once automatically after redeploy. Existing rows and
+  all historical data are preserved; CSV export includes `position`.
+
+### Backend call reduction
+- Per action: add/status/edit/delete/move = 1 RPC; reorder = 1 RPC (one sheet read +
+  targeted position writes). No mutation triggers a full `getBootstrap` anymore.
+
+### Tests
+- Static: `Code.gs` `node --check`; `Index.html` inline script parses.
+- Local (in-app browser, latency-delayed stub at iPhone 15 / 393px): verified each
+  action updates the DOM/counts **before** the delayed server callback (true optimism);
+  add temp→real id swap; move Today→Tomorrow (list + counts instant, `movePlan`
+  persisted); drag-reorder commits DOM + state, recompacts positions, and persists
+  `reorderPlans` with the new id order; no horizontal overflow.
+- Live Apps Script (deploy, real iPhone, real Sheet round-trips, migration on real
+  data): **not performed** — no deploy access from here. Must be verified by the PM.
+
+### Known limitations
+- Very fast actions on a just-added item (within its ~1s pending window) are reconciled
+  on add-resolve for status/edit/move/delete; other rapid sequences are safe because the
+  client never applies server payloads over newer local state.
+- Move targets are Today/Tomorrow only (arbitrary-date move intentionally out of M1).
+
+
 ## 2026-09-17 (collapsible reflection & review history)
 
 ### Added

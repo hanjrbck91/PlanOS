@@ -49,9 +49,16 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-text-
 
 /* plan rows */
 .plans{display:flex;flex-direction:column}
-.plan{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:10px;padding:11px 0;border-top:1px solid currentColor}
+.plan{display:grid;grid-template-columns:22px 34px 1fr auto;align-items:center;gap:8px;padding:11px 0;border-top:1px solid currentColor}
 .plan:first-child{border-top:0;padding-top:2px}
 .today .plan,.tomorrow .plan{border-color:#00000022}
+.plan.dragging{opacity:.6}
+.plan.drop-target{border-top:2px solid var(--olive)}
+.drag{cursor:grab;opacity:.4;font-size:15px;line-height:1;text-align:center;font-family:var(--mono);touch-action:none;user-select:none;-webkit-user-select:none;padding:6px 0}
+.drag:active{cursor:grabbing;opacity:.8}
+.move{border:0;background:none;color:inherit;opacity:.5;cursor:pointer;font-size:15px;line-height:1;padding:4px 5px;font-family:var(--mono)}
+.move:active{opacity:1}
+.actions{display:flex;align-items:center;gap:2px}
 .status{width:32px;height:32px;min-width:32px;border:1.5px solid currentColor;border-radius:9px;background:transparent;color:inherit;cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;font-family:var(--mono);opacity:.9}
 .status:active{transform:translateY(1px)}
 .status.done{background:var(--terraink);color:var(--cream);border-color:var(--terraink)}
@@ -245,13 +252,63 @@ function doneCount(plans){const d=plans.filter(p=>p.status==='done').length;retu
 function hdDate(k){const d=new Date(k+'T00:00:00');return d.toLocaleDateString(undefined,{weekday:'short',day:'2-digit',month:'short',year:'numeric'})}
 function pretty(k){const d=new Date(k+'T00:00:00');return d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}
 function renderPlans(id,plans){
+  const which=id.replace('Plans','');
   document.getElementById(id).innerHTML=plans.map(p=>
-    `<div class="plan"><button class="status ${p.status}" onclick="cycle('${p.id}','${p.status}')" aria-label="status ${p.status}">${icon(p.status)}</button>`+
+    `<div class="plan" data-id="${p.id}">`+
+    `<div class="drag" title="Drag to reorder" aria-label="drag to reorder">⋮</div>`+
+    `<button class="status ${p.status}" onclick="cycle('${p.id}','${p.status}')" aria-label="status ${p.status}">${icon(p.status)}</button>`+
     `<div class="ptext"><div class="pname ${p.status==='skipped'?'strike':''}" onclick="edit('${p.id}')">${escapeHtml(p.plan)}</div><div class="pstat">${p.status}</div></div>`+
-    `<button class="del" onclick="removePlan('${p.id}')" aria-label="delete">×</button></div>`
+    `<div class="actions"><button class="move" onclick="moveDay('${p.id}')" aria-label="move to other day">⇄</button><button class="del" onclick="removePlan('${p.id}')" aria-label="delete">×</button></div>`+
+    `</div>`
   ).join('')||'<div class="empty">Nothing planned yet.</div>';
+  makeSortable(id,which);
 }
 function icon(s){return {planned:'○',done:'✓',partial:'◐',skipped:'–',moved:'→'}[s]||'○'}
+function isTmp(id){return String(id).indexOf('tmp_')===0}
+
+// Background persistence: UI is already updated optimistically. Shows the "Syncing…"
+// indicator while in flight; on failure runs onFail (to revert) and warns. Never blocks.
+function persist(fn,args,onFail){
+  setBusy(true);
+  const runner=google.script.run
+    .withSuccessHandler(function(){setBusy(false)})
+    .withFailureHandler(function(e){setBusy(false);toast('Sync failed — '+((e&&e.message)?e.message:'kept locally')+'.');if(onFail)onFail(e)});
+  runner[fn].apply(runner,args);
+}
+
+// Touch/pointer drag reorder via the handle only (never interferes with status/edit taps).
+// Move/up listeners live on document so both real touch and synthetic drags commit reliably.
+function makeSortable(containerId,which){
+  const cont=document.getElementById(containerId);
+  cont.querySelectorAll('.drag').forEach(function(h){
+    h.addEventListener('pointerdown',function(ev){
+      ev.preventDefault();
+      const row=h.closest('.plan'); if(!row)return;
+      row.classList.add('dragging');
+      function onMove(e){
+        const others=[].slice.call(cont.querySelectorAll('.plan:not(.dragging)'));
+        let ref=null;
+        for(let i=0;i<others.length;i++){const rc=others[i].getBoundingClientRect();if(e.clientY<rc.top+rc.height/2){ref=others[i];break}}
+        if(ref) cont.insertBefore(row,ref); else cont.appendChild(row);
+      }
+      function onUp(){
+        document.removeEventListener('pointermove',onMove);
+        document.removeEventListener('pointerup',onUp);
+        document.removeEventListener('pointercancel',onUp);
+        row.classList.remove('dragging');
+        const order=[].slice.call(cont.querySelectorAll('.plan')).map(function(el){return el.dataset.id});
+        const arr=state[which+'Plans'];
+        arr.sort(function(a,b){return order.indexOf(a.id)-order.indexOf(b.id)});
+        arr.forEach(function(p,i){p.position=i});
+        const realIds=order.filter(function(x){return x&&!isTmp(x)});
+        if(realIds.length) persist('reorderPlans',[realIds]);
+      }
+      document.addEventListener('pointermove',onMove);
+      document.addEventListener('pointerup',onUp);
+      document.addEventListener('pointercancel',onUp);
+    });
+  });
+}
 
 // reflection/review history (append-only, newest first)
 function renderNotes(id, arr, mode, heading){
@@ -272,11 +329,74 @@ function stamp(iso){const d=new Date(iso);if(isNaN(d.getTime()))return '';return
 function listOf(id){return state.todayPlans.some(x=>x.id===id)?'today':'tomorrow'}
 function findPlan(id){return state.todayPlans.find(x=>x.id===id)||state.tomorrowPlans.find(x=>x.id===id)}
 
-// Mutations: one RPC, then patch local state from the server-confirmed record.
-function cycle(id,s){const next={planned:'done',done:'partial',partial:'skipped',skipped:'moved',moved:'planned'}[s];const w=listOf(id);setBusy(true);google.script.run.withSuccessHandler(fin(u=>{const p=findPlan(id);if(p){p.status=u.status;p.updated_at=u.updated_at}renderPlans(w+'Plans',state[w+'Plans']);updateCounts()})).withFailureHandler(fin(err)).setPlanStatus(id,next)}
-function add(which){const el=document.getElementById(which+'Input'),v=el.value.trim();if(!v)return;setBusy(true);google.script.run.withSuccessHandler(fin(p=>{el.value='';state[which+'Plans'].push(p);renderPlans(which+'Plans',state[which+'Plans']);updateCounts();el.focus()})).withFailureHandler(fin(err)).addPlan(which==='today'?state.today:state.tomorrow,v)}
-function edit(id){const p=findPlan(id);if(!p)return;const v=prompt('Edit plan',p.plan);if(v===null)return;const w=listOf(id);setBusy(true);google.script.run.withSuccessHandler(fin(u=>{const q=findPlan(id);if(q){q.plan=u.plan;q.updated_at=u.updated_at}renderPlans(w+'Plans',state[w+'Plans'])})).withFailureHandler(fin(err)).updatePlan(id,v)}
-function removePlan(id){if(!confirm('Remove this plan?'))return;const w=listOf(id);setBusy(true);google.script.run.withSuccessHandler(fin(()=>{state[w+'Plans']=state[w+'Plans'].filter(x=>x.id!==id);renderPlans(w+'Plans',state[w+'Plans']);updateCounts()})).withFailureHandler(fin(err)).deletePlan(id)}
+// --- Optimistic mutations: update local state + UI immediately, persist in background ---
+const CYCLE={planned:'done',done:'partial',partial:'skipped',skipped:'planned'};
+
+function cycle(id,s){
+  const next=CYCLE[s]||'planned';
+  const p=findPlan(id); if(!p) return;
+  p.status=next; p.updated_at=new Date().toISOString();
+  const w=listOf(id); renderPlans(w+'Plans',state[w+'Plans']); updateCounts();
+  if(!isTmp(id)) persist('setPlanStatus',[id,next],function(){p.status=s;renderPlans(w+'Plans',state[w+'Plans']);updateCounts()});
+}
+
+function add(which){
+  const el=document.getElementById(which+'Input'),v=el.value.trim(); if(!v) return;
+  const date=which==='today'?state.today:state.tomorrow, list=state[which+'Plans'];
+  const tmpId='tmp_'+Date.now()+'_'+Math.floor(Math.random()*1e6), pos=list.length, nowIso=new Date().toISOString();
+  const item={id:tmpId,date:date,plan:v,status:'planned',position:pos,created_at:nowIso,updated_at:nowIso};
+  list.push(item); el.value=''; renderPlans(which+'Plans',list); updateCounts(); el.focus();
+  setBusy(true);
+  google.script.run.withSuccessHandler(function(r){
+    setBusy(false);
+    const it=findPlan(tmpId);
+    if(!it){ // deleted while pending -> remove the row we just created on the server
+      google.script.run.withFailureHandler(function(){}).deletePlan(r.id); return;
+    }
+    it.id=r.id; it.created_at=r.created_at;
+    // reconcile any changes made during the pending window
+    if(it.status!=='planned') persist('setPlanStatus',[r.id,it.status]);
+    if(it.plan!==r.plan) persist('updatePlan',[r.id,it.plan]);
+    if(it.date!==r.date) persist('movePlan',[r.id,it.date,it.position]);
+    renderPlans('todayPlans',state.todayPlans); renderPlans('tomorrowPlans',state.tomorrowPlans);
+  }).withFailureHandler(function(e){
+    setBusy(false);
+    const i=list.findIndex(x=>x.id===tmpId); if(i>=0) list.splice(i,1);
+    renderPlans(which+'Plans',list); updateCounts();
+    el.value=v; toast('Add failed — text restored.');
+  }).addPlan(date,v,pos);
+}
+
+function edit(id){
+  const p=findPlan(id); if(!p) return;
+  const v=prompt('Edit plan',p.plan); if(v===null) return;
+  const t=v.trim(); if(!t) return;
+  const prev=p.plan; p.plan=t; p.updated_at=new Date().toISOString();
+  const w=listOf(id); renderPlans(w+'Plans',state[w+'Plans']);
+  if(!isTmp(id)) persist('updatePlan',[id,t],function(){p.plan=prev;renderPlans(w+'Plans',state[w+'Plans'])});
+}
+
+function removePlan(id){
+  if(!confirm('Remove this plan?')) return;
+  const w=listOf(id), arr=state[w+'Plans'], idx=arr.findIndex(x=>x.id===id);
+  if(idx<0) return;
+  const removed=arr[idx];
+  arr.splice(idx,1); renderPlans(w+'Plans',arr); updateCounts();
+  if(!isTmp(id)) persist('deletePlan',[id],function(){arr.splice(idx,0,removed);renderPlans(w+'Plans',arr);updateCounts()});
+}
+
+// Move a plan between Today and Tomorrow (the two visible days).
+function moveDay(id){
+  const from=listOf(id), to=(from==='today')?'tomorrow':'today';
+  const fromArr=state[from+'Plans'], idx=fromArr.findIndex(x=>x.id===id);
+  if(idx<0) return;
+  const item=fromArr.splice(idx,1)[0];
+  item.date=state[to]; item.position=state[to+'Plans'].length;
+  state[to+'Plans'].push(item);
+  renderPlans(from+'Plans',state[from+'Plans']); renderPlans(to+'Plans',state[to+'Plans']); updateCounts();
+  if(!isTmp(id)) persist('movePlan',[id,item.date,item.position]);
+  toast('Moved to '+(to==='today'?'Today':'Tomorrow')+'.');
+}
 function saveReflection(){const ta=document.getElementById('reflection'),v=ta.value.trim();if(!v){toast('Nothing to save.');return}setBusy(true);google.script.run.withSuccessHandler(fin(r=>{ta.value='';if(r){state.reflections.unshift(r);renderNotes('todayNotes',state.reflections,'time',"Today's notes")}toast('Reflection saved.')})).withFailureHandler(fin(err)).saveReflection(state.today,v)}
 
 // Review data loads only when the section is first opened (lazy).

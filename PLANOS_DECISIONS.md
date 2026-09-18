@@ -182,3 +182,48 @@ the measured source of warm-interaction latency).
 Revisit when:
 Data volume grows enough that `updateRow_`/`deleteRow_`'s full-sheet scan to locate a row
 by id becomes a bottleneck (then use a TextFinder or an id→row index).
+
+## Decision 010 — Optimistic UI for Today/Tomorrow; Sheet is source of truth, not the clock
+
+Status: Accepted
+
+Decision:
+Today/Tomorrow mutations (add, status, edit, delete, reorder, move) update local state
+and the DOM immediately, then persist to Apps Script in the background. The UI does not
+wait for the server. On write failure the optimistic change is reverted with a toast.
+Mutation server responses are treated as acks and never overwrite newer local state; the
+only value read back is the real id assigned to a newly added plan (temp→real swap).
+
+Reason:
+Live iPhone use showed warm interactions felt like "tap → wait → wait → change" because
+the UI only updated inside the server callback. Apps Script latency is real and cannot be
+removed; decoupling perceived responsiveness from it makes the tool feel native while
+Sheets stays the durable source of truth. Ignoring mutation payloads prevents a slow/old
+response from clobbering rapid newer edits.
+
+Alternatives considered:
+Keeping server-confirmed updates (rejected — that is the latency the PM reported);
+localStorage as source of truth (rejected — data-safety risk, forbidden); optimistic with
+blind trust and no revert (rejected — would silently lose failed writes).
+
+Revisit when:
+Multi-device concurrent editing is introduced (would need conflict handling beyond
+"newest local wins").
+
+## Decision 011 — Manual ordering via a `position` column
+
+Status: Accepted
+
+Decision:
+Add a `position` integer column to Plans; order each day by `position` then `created_at`.
+Reorder persists `position = index` for the day's ids (`reorderPlans`). Migration adds the
+column and backfills existing rows non-destructively; the readiness cache key is bumped so
+it runs once after deploy.
+
+Reason:
+Users need explicit ordering of the day's actions, independent of creation time or status.
+An integer position is the simplest robust scheme and needs no new sheet.
+
+Revisit when:
+Frequent mid-list inserts make full reindexing costly (then switch to fractional/gap
+positions).

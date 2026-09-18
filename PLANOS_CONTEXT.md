@@ -121,7 +121,7 @@ never dropped.
 
 | Sheet | Columns |
 |-------|---------|
-| `Plans` | `id, date, plan, status, created_at, updated_at` |
+| `Plans` | `id, date, plan, status, position, created_at, updated_at` |
 | `Reflections` | `id, date, reflection, created_at, updated_at` |
 | `WeeklyReviews` | `id, week, reflection, created_at, updated_at` |
 | `MonthlyReviews` | `id, month, reflection, created_at, updated_at` |
@@ -129,6 +129,16 @@ never dropped.
 
 Keys: `date` and `week` are `yyyy-MM-dd` (week = the Monday of that week). `month` is
 `yyyy-MM`. `id` is a UUID. Timestamps are ISO strings. Dates use the script timezone.
+`position` is a 0-based integer ordering plans within a day (added in M1; sorted by
+`position` then `created_at`).
+
+**Interaction model (M1):** Today/Tomorrow mutations are optimistic — the UI updates
+immediately and the Apps Script write happens in the background (one RPC per action, no
+`getBootstrap` after mutations); on failure the local change reverts with a toast. The
+client never applies a mutation's server payload over newer local state (only the
+add temp→real id swap), so stale responses can't clobber the UI. Reorder is
+drag-by-handle (touch + mouse) persisted via `reorderPlans`; a `⇄` control moves a plan
+between Today and Tomorrow via `movePlan`.
 
 **Reflection history model:** `Reflections`, `WeeklyReviews`, and `MonthlyReviews` are
 **append-only** — a period may hold many rows, ordered by `created_at`. `getBootstrap`
