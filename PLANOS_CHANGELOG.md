@@ -1,5 +1,45 @@
 # PlanOS Changelog
 
+## 2026-09-18 (M2.2 — mobile modular workspace)
+
+### Mobile redesign (per PM sketch)
+- Mobile is no longer a vertical stack of cards. It is now a **2-column modular
+  workspace**: Today spans full width (primary), then Tomorrow | Focus, then
+  Reflection | Review, with Export and a new reserved **Command** strip full-width at the
+  bottom. The page is the scroll surface; blocks use content-driven heights (no inherited
+  desktop pixel heights, no giant empty cards, no nested scrolling on mobile).
+- Added a `Command` block: a reserved, dashed full-width strip at the bottom
+  (placeholder only — no command functionality this milestone).
+- Plan rows converted from a fixed grid to flex so they stay readable in half-width
+  blocks; in narrow secondary blocks the drag handle is hidden (reorder stays on the
+  full-width Today block and on desktop). Focusing a block on mobile expands it to full
+  width while the rest of the workspace stays visible.
+
+### Extensibility
+- The workspace is driven by a block map (`DEFAULT_LAYOUT.blocks`) plus a `MOBILE_FULL`
+  set and the DOM blocks; a future block is added by dropping in a `<section
+  class="block" data-block="…">` and a default entry — no layout rewrite. (HABITS,
+  RUNNER, NOTES, etc. are examples only; not implemented.)
+
+### Desktop
+- Unchanged: asymmetric multi-column, resizable, focusable M2 workspace. Export and
+  Command render as full-width strips at the bottom.
+
+### Tests
+- Static: `Code.gs` `node --check` (unchanged); `Index.html` inline script parses.
+- Local (in-app browser, stub) at 393px: Today full width; Tomorrow|Focus and
+  Reflection|Review two-column; Command full-width reserved strip at bottom; no
+  horizontal overflow; long plan text wraps; M1 add/status still work. Desktop 1120px
+  re-verified (asymmetric workspace, resize handles, drag reorder). Corrupt-layout
+  fallback still safe; adding the Command block did not break stored layouts.
+- Live Apps Script / real iPhone: not performed here.
+
+### Known limitations
+- A very long single word in a half-width block can break mid-word (overflow-wrap).
+- Export appears as its own full-width strip above Command (the sketch shows only
+  Command at the bottom); kept because Export is a live utility.
+
+
 ## 2026-09-18 (M2 — modular resizable workspace)
 
 ### Layout

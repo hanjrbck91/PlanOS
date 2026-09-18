@@ -3,8 +3,11 @@
 ## Build log (relevant to validation)
 - 2026-09-18 — M2 shipped: modular resizable workspace (six blocks, drag-resize, click
   focus, localStorage layout). Frontend-only; M1 interactions and Sheets data unchanged.
-  Verify on the iPhone 15 after redeploy: workspace stacks to one column, Today stays
-  primary and fast, and all M1 actions still work.
+- 2026-09-18 — M2.2: mobile redesigned as a 2-column modular workspace (Today full,
+  Tomorrow|Focus, Reflection|Review, Command strip) per the PM sketch; added the reserved
+  Command block. Verify on the iPhone 15 after redeploy: Today full width and fast,
+  secondary blocks paired two-up, Command strip at the bottom, natural scrolling, all M1
+  actions working; desktop workspace unchanged.
 
 ## Objective
 

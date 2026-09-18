@@ -132,6 +132,14 @@ Keys: `date` and `week` are `yyyy-MM-dd` (week = the Monday of that week). `mont
 `position` is a 0-based integer ordering plans within a day (added in M1; sorted by
 `position` then `created_at`).
 
+**Workspace (M2/M2.2):** the UI is a modular block workspace (Today, Tomorrow, Focus,
+Reflection, Review, Export, Command). Desktop is an asymmetric, resizable, focusable
+4-column grid; mobile is a 2-column grid (Today/Export/Command full width, others paired)
+with content-driven heights and the page as the scroll surface. Blocks are driven by a
+block map + DOM sections, so new blocks can be added without a layout rewrite. Focus and
+block sizes persist in `localStorage` only (see Decision 012). Command is a reserved
+placeholder (no functionality yet).
+
 **Interaction model (M1):** Today/Tomorrow mutations are optimistic — the UI updates
 immediately and the Apps Script write happens in the background (one RPC per action, no
 `getBootstrap` after mutations); on failure the local change reverts with a toast. The

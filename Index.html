@@ -49,8 +49,11 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-text-
 
 /* plan rows */
 .plans{display:flex;flex-direction:column}
-.plan{display:grid;grid-template-columns:22px 34px 1fr auto;align-items:center;gap:8px;padding:11px 0;border-top:1px solid currentColor}
+.plan{display:flex;align-items:center;gap:8px;padding:11px 0;border-top:1px solid currentColor}
 .plan:first-child{border-top:0;padding-top:2px}
+.ptext{flex:1 1 auto;min-width:0}
+.pname{overflow-wrap:anywhere}
+.actions{margin-left:auto;flex:0 0 auto}
 .today .plan,.tomorrow .plan{border-color:#00000022}
 .plan.dragging{opacity:.6}
 .plan.drop-target{border-top:2px solid var(--olive)}
@@ -127,11 +130,19 @@ body.busy .sync{display:block}
 .hidden{display:none}
 
 /* ===== M2 workspace ===== */
-.workspace{display:flex;flex-direction:column;gap:12px}
+/* Mobile-first: a 2-column modular grid (Today/Command/Export full width). */
+.workspace{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
 .block{position:relative;border:1px solid var(--line);border-radius:14px;background:var(--panel);display:flex;flex-direction:column;overflow:hidden}
+.block.today,.block.command,.block.export{grid-column:1 / -1}
+.block.active{grid-column:1 / -1}
 .block.today{background:var(--terra);color:var(--terraink);border-color:#00000033}
 .block.tomorrow{background:var(--cream);color:var(--creamink);border-color:#00000022}
 .block.reflect{background:var(--brown);color:var(--cream)}
+.block.command{border-style:dashed;opacity:.85}
+.block.command .block-body{color:var(--muted2)}
+/* Narrow secondary blocks (half-width on mobile): drop the drag handle to give text room.
+   Reorder stays available on the full-width Today block and on desktop. */
+@media(max-width:759px){ .block:not(.today) .plan .drag{display:none} }
 .block-hd{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;flex:0 0 auto}
 .block-body{padding:0 16px 16px;flex:1 1 auto;min-height:0}
 .block.active{outline:2px solid var(--olive);outline-offset:-2px}
@@ -232,6 +243,13 @@ body.busy .sync{display:block}
       <div class="block-body">
         <p class="muted" style="margin:0 0 12px;font-size:13px;color:var(--muted2)">CSV. Your data, your insights.</p>
         <button class="btn" onclick="exportData()">Export CSV</button>
+      </div>
+    </section>
+
+    <section class="block command" data-block="command">
+      <header class="block-hd"><span>Command</span><span class="bt-hint">soon</span></header>
+      <div class="block-body">
+        <p class="muted" style="margin:0;font-size:12.5px">Reserved command surface — a later milestone.</p>
       </div>
     </section>
   </div>
@@ -442,10 +460,12 @@ const COLS=4, ROW_UNIT=8, GAP=12, MINH=120, MAXH=640, MOBILE_MAX=759;
 const DEFAULT_LAYOUT={
   blocks:{
     today:{col:2,h:400}, tomorrow:{col:1,h:400}, focus:{col:1,h:400},
-    reflection:{col:2,h:300}, review:{col:2,h:300}, export:{col:4,h:110}
+    reflection:{col:2,h:300}, review:{col:2,h:300}, export:{col:4,h:110}, command:{col:4,h:96}
   },
   focus:null
 };
+// Blocks that span the full width on the mobile 2-column grid.
+const MOBILE_FULL={today:1, command:1, export:1};
 let layout=DEFAULT_LAYOUT;
 
 function isMobile(){return window.matchMedia('(max-width:'+MOBILE_MAX+'px)').matches}
@@ -474,7 +494,11 @@ function applyLayout(){
     const el=document.querySelector('.block[data-block="'+id+'"]'); if(!el) return;
     const b=layout.blocks[id];
     const active=layout.focus===id;
-    if(mobile){ el.style.gridColumn=''; el.style.gridRow=''; el.style.height=''; }
+    if(mobile){
+      // 2-column modular grid; Today/Export/Command (and the focused block) span full width.
+      el.style.gridColumn=(MOBILE_FULL[id]||active) ? '1 / -1' : 'span 1';
+      el.style.gridRow=''; el.style.height=''; // content-driven height, page scrolls
+    }
     else{
       // Inline styles win over the stylesheet, so apply the focused full-width span here.
       el.style.gridColumn=active ? '1 / -1' : ('span '+b.col);
