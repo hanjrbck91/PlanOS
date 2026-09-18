@@ -1,5 +1,59 @@
 # PlanOS Changelog
 
+## 2026-09-18 (M2 — modular resizable workspace)
+
+### Layout
+- Replaced the stacked card/accordion layout with a single-screen modular **workspace**
+  of six always-visible blocks: Today, Tomorrow, Focus (placeholder — no Pomodoro),
+  Reflection, Review, Export. Desktop uses a 4-column CSS Grid (`grid-auto-flow: row
+  dense`, fine 8px row unit) with an intentional asymmetric default (Today is the large
+  primary block). Frontend-only; no backend/schema change.
+
+### Resize
+- Each block (except Export) has a subtle bottom-right handle. Pointer drag changes the
+  block's column span (1–4, snapped) and pixel height (clamped 120–640). Grid auto-flow
+  prevents overlap; min/max keep the workspace coherent. Handles are hidden on mobile.
+  Layout persists on pointer-up (debounced), never per-move.
+
+### Focus
+- Clicking a block's header focuses it: it expands to full width (grid-column 1/-1),
+  gets an accent outline, and other blocks stay visible. Clicking its header again (or
+  another block) changes focus. No modal, no navigation. Review data lazy-loads the
+  first time the Review block is focused (keeps startup at one RPC).
+
+### Persistence
+- Workspace layout (per-block col + height, and focus) is stored in `localStorage`
+  (`planos_layout_v1`), debounced. On load it is validated and clamped; missing/corrupt
+  data falls back to the default layout inside try/catch, so bad local state can never
+  break startup. No layout data touches Google Sheets.
+
+### Mobile
+- Below 760px the workspace is a single-column vertical stack (Today first), resize
+  handles hidden, blocks at natural height — the block concept preserved without a
+  fragile freeform-resize touch interaction. All M1 interactions remain.
+
+### Regression / performance
+- No backend calls added; layout operations are pure local UI state. M1 optimistic
+  add/status/edit/delete/reorder/move and the append-only reflection/review history
+  (individually collapsible notes) are unchanged. Removed dead CSS (`.card`, `.tiles`,
+  `details.card`, `.sec-body`) and the old details toggle wiring.
+
+### Tests
+- Static: `Code.gs` `node --check` (unchanged); `Index.html` inline script parses.
+- Local (in-app browser, stub): desktop 1120px shows the asymmetric workspace, all
+  blocks visible; focus expands a block to full width with others visible; resize of a
+  block persists (col 4, h 560) to localStorage; corrupt localStorage falls back to
+  default; mobile 393px is a single-column stack (Today first), handles hidden, no
+  horizontal overflow, and M1 add/status still work.
+- Live Apps Script / real iPhone: not performed here (no deploy access).
+
+### Known limitations
+- Desktop resize is column-snapped width + free height (constrained tracks), not
+  arbitrary pixel freeform — chosen for coherence and to avoid overlap.
+- Resizing a block while it is focused changes its stored size but the block stays
+  full-width until focus is cleared.
+
+
 ## 2026-09-18 (M1 — Today/Tomorrow instant interaction)
 
 ### Interaction model: optimistic UI + background persistence

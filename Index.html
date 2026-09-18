@@ -95,16 +95,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-text-
 .reflect .btn{background:var(--cream);color:var(--brown);border-color:var(--cream)}
 .btn:active{transform:translateY(1px)}
 
-/* utility tiles row */
-.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.tile{border:1px solid var(--line);border-radius:14px;padding:15px;background:var(--panel);cursor:pointer;text-align:left;color:inherit;font:inherit;display:flex;flex-direction:column;gap:8px}
-.tile:active{transform:translateY(1px)}
-.tile .tl{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase}
-.tile .ts{font-size:12px;color:var(--muted2);line-height:1.4}
-.tile.review{border-color:var(--line2)}
-
 /* review panel */
-#review{grid-column:1/-1}
 .rev-block+.rev-block{margin-top:22px;padding-top:22px;border-top:1px solid var(--line)}
 .rev-range{font-family:var(--mono);font-size:12px;color:var(--muted2);margin-bottom:12px}
 .counts{display:flex;flex-wrap:wrap;gap:12px 18px;margin-bottom:14px}
@@ -133,29 +124,36 @@ details.note[open] .note-prev{display:none}
 .sync{display:none;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--olive);margin-top:6px}
 body.busy .sync{display:block}
 
-/* collapsible sections */
-details.card{padding:0}
-details.card>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px;font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;-webkit-tap-highlight-color:transparent}
-details.card>summary::-webkit-details-marker{display:none}
-.s-right{display:flex;align-items:center;gap:10px}
-.chev{font-size:13px;opacity:.7;transition:transform .15s;line-height:1}
-details[open]>summary .chev{transform:rotate(90deg)}
-.sec-body{padding:0 16px 16px}
-.sec-body .add{margin-top:0}
-
 .hidden{display:none}
+
+/* ===== M2 workspace ===== */
+.workspace{display:flex;flex-direction:column;gap:12px}
+.block{position:relative;border:1px solid var(--line);border-radius:14px;background:var(--panel);display:flex;flex-direction:column;overflow:hidden}
+.block.today{background:var(--terra);color:var(--terraink);border-color:#00000033}
+.block.tomorrow{background:var(--cream);color:var(--creamink);border-color:#00000022}
+.block.reflect{background:var(--brown);color:var(--cream)}
+.block-hd{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;flex:0 0 auto}
+.block-body{padding:0 16px 16px;flex:1 1 auto;min-height:0}
+.block.active{outline:2px solid var(--olive);outline-offset:-2px}
+.bt-hint{font-family:var(--mono);font-size:9px;letter-spacing:.12em;opacity:.5;text-transform:none}
+.rz{display:none}
+
+@media(min-width:760px){
+  .app{max-width:1120px;padding:26px 22px 56px}
+  .brand{font-size:36px}
+  .workspace{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:8px;grid-auto-flow:row dense;gap:12px}
+  .block{height:100%}
+  .block-body{overflow:auto}
+  .block.active{grid-column:1 / -1}
+  .rz{display:block;position:absolute;right:0;bottom:0;width:22px;height:22px;cursor:nwse-resize;touch-action:none;z-index:2}
+  .rz::after{content:"";position:absolute;right:5px;bottom:5px;width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;opacity:.35}
+  .block.resizing{outline:2px dashed var(--olive);outline-offset:-2px}
+}
 
 /* toast */
 #toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--olive);color:#14130f;font-family:var(--mono);font-size:12px;letter-spacing:.06em;padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .18s;z-index:9}
 #toast.show{opacity:1}
 
-/* desktop */
-@media(min-width:760px){
-  .app{max-width:900px;padding:28px 24px 56px}
-  .brand{font-size:36px}
-  .grid{grid-template-columns:1fr 1fr;align-items:start}
-  .today{grid-column:1/-1}
-}
 </style></head>
 <body><main class="app">
   <div class="top">
@@ -163,62 +161,79 @@ details[open]>summary .chev{transform:rotate(90deg)}
     <div class="hd-right"><div id="hdDate" class="hd-date"></div><div class="hd-note">Keep it short.<br>Get back to life.</div><div id="sync" class="sync">Syncing…</div></div>
   </div>
 
-  <div class="grid">
-    <section class="card today">
-      <div class="head"><span class="label">Today</span><span id="todayCount" class="count"></span></div>
-      <div id="todayDate" class="pstat" style="opacity:.55;margin:-6px 0 12px"></div>
-      <div id="todayPlans" class="plans"></div>
-      <div class="add"><input id="todayInput" class="input" placeholder="Add a plan…" onkeydown="if(event.key==='Enter')add('today')"><button class="addbtn" onclick="add('today')" aria-label="Add today plan">+</button></div>
+  <div id="workspace" class="workspace">
+    <section class="block today" data-block="today">
+      <header class="block-hd"><span>Today</span><span id="todayCount" class="count"></span></header>
+      <div class="block-body">
+        <div id="todayDate" class="pstat" style="opacity:.55;margin:0 0 12px"></div>
+        <div id="todayPlans" class="plans"></div>
+        <div class="add"><input id="todayInput" class="input" placeholder="Add a plan…" onkeydown="if(event.key==='Enter')add('today')"><button class="addbtn" onclick="add('today')" aria-label="Add today plan">+</button></div>
+      </div>
+      <div class="rz" data-rz="today" aria-hidden="true"></div>
     </section>
 
-    <details class="card tomorrow">
-      <summary><span>Tomorrow</span><span class="s-right"><span id="tomorrowCount" class="count"></span><span class="chev">▸</span></span></summary>
-      <div class="sec-body">
+    <section class="block tomorrow" data-block="tomorrow">
+      <header class="block-hd"><span>Tomorrow</span><span id="tomorrowCount" class="count"></span></header>
+      <div class="block-body">
         <div id="tomorrowDate" class="pstat" style="opacity:.55;margin:0 0 12px"></div>
         <div id="tomorrowPlans" class="plans"></div>
         <div class="add" style="margin-top:12px"><input id="tomorrowInput" class="input" placeholder="Prepare tomorrow…" onkeydown="if(event.key==='Enter')add('tomorrow')"><button class="addbtn" onclick="add('tomorrow')" aria-label="Add tomorrow plan">+</button></div>
       </div>
-    </details>
+      <div class="rz" data-rz="tomorrow" aria-hidden="true"></div>
+    </section>
 
-    <details class="card reflect">
-      <summary><span>Reflection</span><span class="chev">▸</span></summary>
-      <div class="sec-body">
+    <section class="block focus" data-block="focus">
+      <header class="block-hd"><span>Focus</span></header>
+      <div class="block-body">
+        <p class="muted" style="margin:0;font-size:13px;line-height:1.5">A dedicated focus space lands in a later milestone.<br>For now this block holds its place in the workspace.</p>
+      </div>
+      <div class="rz" data-rz="focus" aria-hidden="true"></div>
+    </section>
+
+    <section class="block reflect" data-block="reflection">
+      <header class="block-hd"><span>Reflection</span></header>
+      <div class="block-body">
         <p class="muted" style="margin:0 0 10px;font-size:13px;line-height:1.45">What happened? What worked? What didn't? What should change tomorrow?</p>
         <textarea id="reflection" class="rarea" placeholder="Write a reflection…"></textarea>
         <button class="btn" onclick="saveReflection()">Save reflection</button>
         <div id="todayNotes" class="notes"></div>
       </div>
-    </details>
+      <div class="rz" data-rz="reflection" aria-hidden="true"></div>
+    </section>
 
-    <details id="review" class="card">
-      <summary><span>Review</span><span class="chev">▸</span></summary>
-      <div class="sec-body">
-        <div class="rev-block">
-          <div class="head"><span class="label">This week</span></div>
-          <div id="weekRange" class="rev-range"></div>
-          <div id="weekCounts" class="counts"></div>
-          <textarea id="weekReflection" class="rarea" placeholder="Weekly reflection — what worked, what was unrealistic, what changes next week?"></textarea>
-          <button class="btn" style="background:var(--olive);color:#14130f;border-color:var(--olive)" onclick="saveWeekly()">Save weekly</button>
-          <div id="weekNotes" class="notes"></div>
-        </div>
-        <div class="rev-block">
-          <div class="head"><span class="label">This month</span></div>
-          <div id="monthLabel" class="rev-range"></div>
-          <div id="monthCounts" class="counts"></div>
-          <textarea id="monthReflection" class="rarea" placeholder="Monthly reflection — patterns, recurring problems, recurring successes?"></textarea>
-          <button class="btn" style="background:var(--olive);color:#14130f;border-color:var(--olive)" onclick="saveMonthly()">Save monthly</button>
-          <div id="monthNotes" class="notes"></div>
+    <section class="block review" data-block="review">
+      <header class="block-hd"><span>Review</span></header>
+      <div class="block-body">
+        <div id="reviewHint" class="muted" style="font-size:13px">Click the Review title to load this week &amp; month.</div>
+        <div id="reviewInner" class="hidden">
+          <div class="rev-block">
+            <div class="head"><span class="label">This week</span></div>
+            <div id="weekRange" class="rev-range"></div>
+            <div id="weekCounts" class="counts"></div>
+            <textarea id="weekReflection" class="rarea" placeholder="Weekly reflection — what worked, what was unrealistic, what changes next week?"></textarea>
+            <button class="btn" style="background:var(--olive);color:#14130f;border-color:var(--olive)" onclick="saveWeekly()">Save weekly</button>
+            <div id="weekNotes" class="notes"></div>
+          </div>
+          <div class="rev-block">
+            <div class="head"><span class="label">This month</span></div>
+            <div id="monthLabel" class="rev-range"></div>
+            <div id="monthCounts" class="counts"></div>
+            <textarea id="monthReflection" class="rarea" placeholder="Monthly reflection — patterns, recurring problems, recurring successes?"></textarea>
+            <button class="btn" style="background:var(--olive);color:#14130f;border-color:var(--olive)" onclick="saveMonthly()">Save monthly</button>
+            <div id="monthNotes" class="notes"></div>
+          </div>
         </div>
       </div>
-    </details>
+      <div class="rz" data-rz="review" aria-hidden="true"></div>
+    </section>
 
-    <details class="card export">
-      <summary><span>Export</span><span class="chev">▸</span></summary>
-      <div class="sec-body">
+    <section class="block export" data-block="export">
+      <header class="block-hd"><span>Export</span></header>
+      <div class="block-body">
         <p class="muted" style="margin:0 0 12px;font-size:13px;color:var(--muted2)">CSV. Your data, your insights.</p>
         <button class="btn" onclick="exportData()">Export CSV</button>
       </div>
-    </details>
+    </section>
   </div>
 </main>
 <div id="toast"></div>
@@ -399,9 +414,12 @@ function moveDay(id){
 }
 function saveReflection(){const ta=document.getElementById('reflection'),v=ta.value.trim();if(!v){toast('Nothing to save.');return}setBusy(true);google.script.run.withSuccessHandler(fin(r=>{ta.value='';if(r){state.reflections.unshift(r);renderNotes('todayNotes',state.reflections,'time',"Today's notes")}toast('Reflection saved.')})).withFailureHandler(fin(err)).saveReflection(state.today,v)}
 
-// Review data loads only when the section is first opened (lazy).
+// Review data loads only the first time the Review block is focused (keeps startup at 1 RPC).
 function loadReview(){
+  if(reviewLoaded) return;
   reviewLoaded=true;
+  const hint=document.getElementById('reviewHint'), inner=document.getElementById('reviewInner');
+  if(hint) hint.classList.add('hidden'); if(inner) inner.classList.remove('hidden');
   setBusy(true);google.script.run.withSuccessHandler(fin(renderWeek)).withFailureHandler(fin(err)).getWeeklySummary(null);
   setBusy(true);google.script.run.withSuccessHandler(fin(renderMonth)).withFailureHandler(fin(err)).getMonthlySummary(null);
 }
@@ -418,7 +436,100 @@ function exportData(){setBusy(true);google.script.run.withSuccessHandler(fin(dat
 function download(name,text){const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(text);a.download=name;a.click()}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
-// Lazy-load Review the first time it is opened.
-document.getElementById('review').addEventListener('toggle',function(){if(this.open&&!reviewLoaded)loadReview()});
+// ===== M2 workspace: resizable blocks, focus, local layout persistence =====
+const LAYOUT_KEY='planos_layout_v1';
+const COLS=4, ROW_UNIT=8, GAP=12, MINH=120, MAXH=640, MOBILE_MAX=759;
+const DEFAULT_LAYOUT={
+  blocks:{
+    today:{col:2,h:400}, tomorrow:{col:1,h:400}, focus:{col:1,h:400},
+    reflection:{col:2,h:300}, review:{col:2,h:300}, export:{col:4,h:110}
+  },
+  focus:null
+};
+let layout=DEFAULT_LAYOUT;
+
+function isMobile(){return window.matchMedia('(max-width:'+MOBILE_MAX+'px)').matches}
+function loadLayout(){
+  try{
+    const raw=localStorage.getItem(LAYOUT_KEY); if(!raw) return clone(DEFAULT_LAYOUT);
+    const p=JSON.parse(raw); if(!p||typeof p!=='object'||!p.blocks) return clone(DEFAULT_LAYOUT);
+    const out=clone(DEFAULT_LAYOUT);
+    Object.keys(out.blocks).forEach(function(k){
+      const b=p.blocks[k];
+      if(b){ if(typeof b.col==='number') out.blocks[k].col=clamp(Math.round(b.col),1,COLS);
+             if(typeof b.h==='number') out.blocks[k].h=clamp(Math.round(b.h),MINH,MAXH); }
+    });
+    out.focus=(p.focus&&out.blocks[p.focus])?p.focus:null;
+    return out;
+  }catch(e){ return clone(DEFAULT_LAYOUT); }
+}
+function clone(o){return JSON.parse(JSON.stringify(o))}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+let saveT;
+function saveLayout(){try{clearTimeout(saveT);saveT=setTimeout(function(){try{localStorage.setItem(LAYOUT_KEY,JSON.stringify(layout))}catch(e){}},200)}catch(e){}}
+
+function applyLayout(){
+  const mobile=isMobile();
+  Object.keys(layout.blocks).forEach(function(id){
+    const el=document.querySelector('.block[data-block="'+id+'"]'); if(!el) return;
+    const b=layout.blocks[id];
+    const active=layout.focus===id;
+    if(mobile){ el.style.gridColumn=''; el.style.gridRow=''; el.style.height=''; }
+    else{
+      // Inline styles win over the stylesheet, so apply the focused full-width span here.
+      el.style.gridColumn=active ? '1 / -1' : ('span '+b.col);
+      const h=active ? Math.max(b.h,360) : b.h;
+      el.style.gridRow='span '+Math.max(1,Math.round((h+GAP)/(ROW_UNIT+GAP)));
+      el.style.height='100%';
+    }
+    el.classList.toggle('active', active);
+  });
+}
+
+function focusBlock(id){
+  layout.focus=(layout.focus===id)?null:id;
+  applyLayout(); saveLayout();
+  if(id==='review' && layout.focus==='review') loadReview();
+}
+
+function initWorkspace(){
+  layout=loadLayout();
+  applyLayout();
+  // Focus toggle on header click (never conflicts with body controls or the resize handle)
+  document.querySelectorAll('.block').forEach(function(el){
+    const hd=el.querySelector('.block-hd'); const id=el.getAttribute('data-block');
+    if(hd) hd.addEventListener('click',function(){focusBlock(id)});
+  });
+  // Resize handles (desktop pointer; hidden on mobile via CSS)
+  document.querySelectorAll('.rz').forEach(function(h){
+    h.addEventListener('pointerdown',function(ev){
+      if(isMobile()) return;
+      ev.preventDefault(); ev.stopPropagation();
+      const id=h.getAttribute('data-rz'), el=h.closest('.block'), ws=document.getElementById('workspace');
+      const b=layout.blocks[id]; if(!b) return;
+      el.classList.add('resizing');
+      const colUnit=(ws.getBoundingClientRect().width+GAP)/COLS;
+      function onMove(e){
+        const rect=el.getBoundingClientRect();
+        b.col=clamp(Math.round((e.clientX-rect.left)/colUnit)||1,1,COLS);
+        b.h=clamp(Math.round(e.clientY-rect.top),MINH,MAXH);
+        el.style.gridColumn='span '+b.col;
+        el.style.gridRow='span '+Math.max(1,Math.round((b.h+GAP)/(ROW_UNIT+GAP)));
+      }
+      function onUp(){
+        document.removeEventListener('pointermove',onMove);
+        document.removeEventListener('pointerup',onUp);
+        document.removeEventListener('pointercancel',onUp);
+        el.classList.remove('resizing'); saveLayout();
+      }
+      document.addEventListener('pointermove',onMove);
+      document.addEventListener('pointerup',onUp);
+      document.addEventListener('pointercancel',onUp);
+    });
+  });
+  let rT; window.addEventListener('resize',function(){clearTimeout(rT);rT=setTimeout(applyLayout,150)});
+}
+
+initWorkspace();
 load();
 </script></body></html>

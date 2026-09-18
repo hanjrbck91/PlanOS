@@ -1,5 +1,11 @@
 # PlanOS V0 — Real-World Validation
 
+## Build log (relevant to validation)
+- 2026-09-18 — M2 shipped: modular resizable workspace (six blocks, drag-resize, click
+  focus, localStorage layout). Frontend-only; M1 interactions and Sheets data unchanged.
+  Verify on the iPhone 15 after redeploy: workspace stacks to one column, Today stays
+  primary and fast, and all M1 actions still work.
+
 ## Objective
 
 Determine whether PlanOS's core loop is useful in real daily life:

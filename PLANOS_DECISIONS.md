@@ -227,3 +227,29 @@ An integer position is the simplest robust scheme and needs no new sheet.
 Revisit when:
 Frequent mid-list inserts make full reindexing costly (then switch to fractional/gap
 positions).
+
+## Decision 012 — Workspace layout is client-only, persisted in localStorage
+
+Status: Accepted
+
+Decision:
+The M2 modular workspace (block sizes, and which block is focused) is UI state persisted
+only in `localStorage`. It is never written to Google Sheets and does not touch the Plans
+or reflection/review schemas. Desktop resize is column-snapped width + clamped free
+height on a CSS Grid; mobile is a single-column stack with resize disabled.
+
+Reason:
+Layout is a per-device presentation preference, not shared/durable planning data. Keeping
+it out of Sheets avoids schema churn and extra RPCs, and keeps interaction latency at
+zero for layout changes. Grid auto-flow guarantees non-overlap; clamping guarantees
+usable min/max sizes. Freeform pixel resize is unreliable on iOS touch, so mobile uses
+constrained responsive tracks instead.
+
+Alternatives considered:
+Persisting layout in Sheets (rejected — schema churn, network cost, cross-device coupling
+of a per-device preference); a drag-and-drop grid library (rejected — heavy dependency
+for a tiny tool); freeform pixel resize on mobile (rejected — fragile touch behavior).
+
+Revisit when:
+Layout needs to sync across devices, or blocks need free 2-D positioning beyond
+column-snap + height.
